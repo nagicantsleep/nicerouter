@@ -59,4 +59,8 @@ export default {
     { id: "gpt-5.6-sol", name: "GPT 5.6 Sol" },
     { id: "gpt-6-astra", name: "GPT 6 Astra" },
   ],
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

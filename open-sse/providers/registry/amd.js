@@ -54,4 +54,8 @@ export default {
     { id: "MiniCPM5-2B", name: "MiniCPM5 2B" },
     { id: "Qwen3.8-Flash-Next", name: "Qwen 3.8 Flash Next" },
   ],
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

@@ -62,4 +62,8 @@ export default {
     { id: "mimo-v2.5", name: "MiMo V2.5" },
     { id: "hy3", name: "Hunyuan 3" },
   ],
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

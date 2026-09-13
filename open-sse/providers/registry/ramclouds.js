@@ -65,4 +65,8 @@ export default {
     { id: "grok-4.6", name: "Grok 4.6" },
     { id: "gpt-5.5-chat", name: "GPT 5.5 Chat" },
   ],
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

@@ -659,6 +659,23 @@ export function parseQuotaData(provider, data) {
             });
           });
         }
+      case "amd":
+      case "vyceai":
+      case "seekai":
+      case "agentrouter":
+      case "ramclouds":
+        if (data.quotas) {
+          Object.entries(data.quotas).forEach(([name, quota]) => {
+            normalizedQuotas.push({
+              name,
+              used: quota.used || 0,
+              total: quota.total || 0,
+              resetAt: quota.resetAt || null,
+              remainingPercentage: quota.remainingPercentage,
+              unlimited: quota.unlimited,
+            });
+          });
+        }
         break;
 
       default:

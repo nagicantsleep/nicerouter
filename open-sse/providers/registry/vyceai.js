@@ -66,4 +66,8 @@ export default {
     { id: "nemotron-vision", name: "Nemotron Vision" },
     { id: "grok-imagine-2", name: "Grok Imagine 2" },
   ],
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

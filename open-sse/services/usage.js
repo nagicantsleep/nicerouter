@@ -26,6 +26,11 @@ import {
   getVercelAiGatewayUsage,
   getQoderUsage,
 } from "./usage/misc.js";
+import {
+  getAmdUsage,
+  getVyceAiUsage,
+  getOpenAIBillingUsage,
+} from "./usage/customProviders.js";
 
 /**
  * Get usage data for a provider connection
@@ -62,6 +67,11 @@ const USAGE_HANDLERS = {
   groq: (c) => getGroqUsage(c.apiKey, c.proxyOptions),
   zed: (c) => getZedUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
   "xiaomi-mimo": (c) => getXiaomiMimoUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
+  amd: (c) => getAmdUsage(c.apiKey, c.proxyOptions),
+  vyceai: (c) => getVyceAiUsage(c.apiKey, c.proxyOptions),
+  seekai: (c) => getOpenAIBillingUsage("SeekAI", "https://seekai.cc/v1", c.apiKey, c.proxyOptions),
+  agentrouter: (c) => getOpenAIBillingUsage("AgentRouter", "https://agentrouter.org/v1", c.apiKey, c.proxyOptions),
+  ramclouds: (c) => getOpenAIBillingUsage("Ramclouds", "https://ramclouds.me/v1", c.apiKey, c.proxyOptions),
 };
 
 export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {
