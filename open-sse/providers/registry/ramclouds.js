@@ -1,0 +1,68 @@
+export default {
+  id: "ramclouds",
+  priority: 263,
+  alias: "ramclouds",
+  aliases: [
+    "rc",
+  ],
+  uiAlias: "rc",
+  display: {
+    name: "Ramclouds",
+    icon: "cloud",
+    color: "#2563EB",
+    textIcon: "RC",
+    website: "https://ramclouds.me",
+    notice: {
+      apiKeyUrl: "https://ramclouds.me",
+    },
+  },
+  category: "apikey",
+  thinkingConfig: {
+    options: [
+      "auto",
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ],
+    defaultMode: "auto",
+  },
+  transport: {
+    baseUrl: "https://ramclouds.me/v1/chat/completions",
+    validateUrl: "https://ramclouds.me/v1/models",
+    headers: {
+      "User-Agent": "Cline/3.0.0",
+    },
+  },
+  transports: [
+    {
+      format: "openai",
+      baseUrl: "https://ramclouds.me/v1/chat/completions",
+      headers: { "User-Agent": "Cline/3.0.0" },
+      auth: { combined: true, header: "Authorization", scheme: "bearer" },
+    },
+    {
+      format: "claude",
+      baseUrl: "https://ramclouds.me/v1/messages",
+      headers: { "User-Agent": "Cline/3.0.0" },
+      auth: { combined: true, header: "Authorization", scheme: "bearer", anthropicVersion: true },
+    },
+  ],
+  models: [
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "gemini-3.7-flash-high", name: "Gemini 3.7 Flash High" },
+    { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
+    { id: "qwen-3.8-flash", name: "Qwen 3.8 Flash" },
+    { id: "qwen-3.8-max", name: "Qwen 3.8 Max" },
+    { id: "kimi-k3", name: "Kimi K3" },
+    { id: "glm-5.3", name: "GLM 5.3" },
+    { id: "mimo-v2.5", name: "MiMo V2.5" },
+    { id: "MiniMax-M3", name: "MiniMax M3" },
+    { id: "grok-4.6", name: "Grok 4.6" },
+    { id: "gpt-5.5-chat", name: "GPT 5.5 Chat" },
+  ],
+};

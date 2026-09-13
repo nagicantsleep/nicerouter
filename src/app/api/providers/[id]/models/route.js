@@ -241,6 +241,8 @@ const PROVIDER_MODELS_CONFIG = {
   amd: createOpenAIModelsConfig("https://developer.amd.com.cn/radeon/api/v1/models"),
   agentrouter: createOpenAIModelsConfig("https://agentrouter.org/v1/models"),
   seekai: createOpenAIModelsConfig("https://seekai.cc/v1/models"),
+  ramclouds: createOpenAIModelsConfig("https://ramclouds.me/v1/models"),
+  vyceai: createOpenAIModelsConfig("https://vyceai.com/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),

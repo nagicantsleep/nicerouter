@@ -126,6 +126,8 @@ import p122 from "./xquik.js";
 import pAmd from "./amd.js";
 import pAgentRouter from "./agentrouter.js";
 import pSeekAi from "./seekai.js";
+import pRamclouds from "./ramclouds.js";
+import pVyceAi from "./vyceai.js";
 export default [
   p0,
   p1,
@@ -252,4 +254,6 @@ export default [
   pAmd,
   pAgentRouter,
   pSeekAi,
+  pRamclouds,
+  pVyceAi,
 ];
