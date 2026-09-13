@@ -1647,33 +1647,32 @@ export default function ProviderDetailPage() {
                 </div>
               )}
               {connectionsList}
-              {!isCompatible && (
-                <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
-                  {providerId === "iflow" && (
-                    <Button
-                      size="sm"
-                      icon="cookie"
-                      variant="secondary"
-                      onClick={() => setShowIFlowCookieModal(true)}
-                      title="Add connection using browser cookie"
-                      className="w-full sm:w-auto"
-                    >
-                      Cookie
-                    </Button>
-                  )}
-                  {providerId === "codex" && (
-                    <Button
-                      size="sm"
-                      icon="playlist_add"
-                      variant="secondary"
-                      onClick={() => setShowBulkImportCodex(true)}
-                      title={translate("Bulk import codex accounts from JSON")}
-                      className="w-full sm:w-auto"
-                    >
-                      {translate("Bulk Add")}
-                    </Button>
-                  )}
-                  {providerId === "grok-cli" && (
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
+                {!isCompatible && providerId === "iflow" && (
+                  <Button
+                    size="sm"
+                    icon="cookie"
+                    variant="secondary"
+                    onClick={() => setShowIFlowCookieModal(true)}
+                    title="Add connection using browser cookie"
+                    className="w-full sm:w-auto"
+                  >
+                    Cookie
+                  </Button>
+                )}
+                {!isCompatible && providerId === "codex" && (
+                  <Button
+                    size="sm"
+                    icon="playlist_add"
+                    variant="secondary"
+                    onClick={() => setShowBulkImportCodex(true)}
+                    title={translate("Bulk import codex accounts from JSON")}
+                    className="w-full sm:w-auto"
+                  >
+                    {translate("Bulk Add")}
+                  </Button>
+                )}
+                  {!isCompatible && providerId === "grok-cli" && (
                     <Button
                       size="sm"
                       icon="playlist_add"
@@ -1712,11 +1711,10 @@ export default function ProviderDetailPage() {
                       onClick={triggerAddConnection}
                       className="w-full sm:w-auto"
                     >
-                      Add
+                      {isCompatible ? "Add API Key" : "Add"}
                     </Button>
                   )}
                 </div>
-              )}
             </>
           )}
         </Card>

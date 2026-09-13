@@ -64,7 +64,8 @@ export function extractThinking(body) {
     const e = effort.toLowerCase();
     if (e === "none" || e === "off") return { mode: "none" };
     if (e === "auto") return { mode: "auto" };
-    return { mode: "level", level: e };
+    const normalized = e === "x-high" ? "xhigh" : e;
+    return { mode: "level", level: normalized };
   }
 
   // Claude shape
@@ -77,7 +78,6 @@ export function extractThinking(body) {
       return { mode: "auto" };
     }
   }
-
   // Gemini shape (top-level, generationConfig, or request envelope)
   const tc = body.thinkingConfig || body.generationConfig?.thinkingConfig || body.request?.generationConfig?.thinkingConfig;
   if (tc && typeof tc === "object") {

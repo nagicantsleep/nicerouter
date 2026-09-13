@@ -71,10 +71,10 @@ const appendCodexReviewModels = (models) => models.flatMap((model) => {
 
 const parseCodexModels = (data) => appendCodexReviewModels(parseOpenAIStyleModels(data));
 
-const createOpenAIModelsConfig = (url) => ({
+const createOpenAIModelsConfig = (url, extraHeaders = {}) => ({
   url,
   method: "GET",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0", ...extraHeaders },
   authHeader: "Authorization",
   authPrefix: "Bearer ",
   parseResponse: parseOpenAIStyleModels
@@ -238,6 +238,9 @@ const PROVIDER_MODELS_CONFIG = {
   byteplus: createOpenAIModelsConfig("https://ark.ap-southeast.bytepluses.com/api/coding/v3/models"),
 
   // OpenAI-compatible API key providers
+  amd: createOpenAIModelsConfig("https://developer.amd.com.cn/radeon/api/v1/models"),
+  agentrouter: createOpenAIModelsConfig("https://agentrouter.org/v1/models"),
+  seekai: createOpenAIModelsConfig("https://seekai.cc/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),
@@ -491,6 +494,7 @@ export async function GET(request, { params }) {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${connection.apiKey}`,
+          "User-Agent": "Cline/3.0.0",
         },
       });
 
@@ -531,7 +535,8 @@ export async function GET(request, { params }) {
           "Content-Type": "application/json",
           "x-api-key": connection.apiKey,
           "anthropic-version": "2023-06-01",
-          "Authorization": `Bearer ${connection.apiKey}`
+          "Authorization": `Bearer ${connection.apiKey}`,
+          "User-Agent": "Cline/3.0.0",
         },
       });
 

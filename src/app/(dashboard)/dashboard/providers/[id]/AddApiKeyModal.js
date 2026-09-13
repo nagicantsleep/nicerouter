@@ -97,7 +97,8 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
       // Non-ollama providers require a name
       if (!formData.name) return;
     }
-    if (isCompatible && !formData.defaultModel.trim()) return;
+    const hasExistingConnections = (existingNames || []).length > 0;
+    if (isCompatible && !hasExistingConnections && !formData.defaultModel.trim()) return;
 
     setSaving(true);
     try {
@@ -122,7 +123,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
       await onSave({
         name: formData.name || (isOllamaLocal ? "Ollama Local" : ""),
         apiKey: formData.apiKey,
-        defaultModel: isCompatible ? formData.defaultModel.trim() : undefined,
+        defaultModel: isCompatible && formData.defaultModel.trim() ? formData.defaultModel.trim() : undefined,
         priority: formData.priority,
         proxyPoolId: formData.proxyPoolId === NONE_PROXY_POOL_VALUE ? null : formData.proxyPoolId,
         testStatus: isValid ? "active" : "unknown",
@@ -393,7 +394,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         </p>
 
         <div className="flex gap-2">
-          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
+          <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && (existingNames || []).length === 0 && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
             {saving ? "Saving..." : "Save"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>

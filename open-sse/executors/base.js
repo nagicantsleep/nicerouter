@@ -48,6 +48,9 @@ export class BaseExecutor {
       "Content-Type": "application/json",
       ...this.config.headers
     };
+    if (!headers["User-Agent"] && !headers["user-agent"]) {
+      headers["User-Agent"] = "Cline/3.0.0";
+    }
 
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
       // Anthropic-compatible providers use x-api-key header

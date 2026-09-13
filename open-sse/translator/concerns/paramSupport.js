@@ -24,6 +24,8 @@ const STRIP_RULES = [
   // "integer above maximum value, expected <= 32768". Pin an explicit endpoint cap;
   // min() with the model ceiling still applies if a variant's own limit is lower.
   { provider: "volcengine-ark", match: /kimi/i, maxOutputCap: 32768, clampToModelMaxOutput: true },
+  // AMD: rejects Anthropic thinking parameter upstream (HTTP 400)
+  { provider: "amd", drop: ["thinking"] },
 ];
 
 // Test a rule's match (regex or predicate) against the model id.
@@ -74,5 +76,24 @@ export function stripUnsupportedParams(provider, model, body) {
       }
     }
   }
+
+  // Normalize reasoning effort
+  if (body.reasoning_effort === "x-high") {
+    body.reasoning_effort = "xhigh";
+  }
+  if (body.reasoning && typeof body.reasoning === "object" && body.reasoning.effort === "x-high") {
+    body.reasoning.effort = "xhigh";
+  }
+
+  // SeekAI: upstream rejects "max" with HTTP 400; clamp to "xhigh"
+  if (provider === "seekai") {
+    if (body.reasoning_effort === "max") {
+      body.reasoning_effort = "xhigh";
+    }
+    if (body.reasoning && typeof body.reasoning === "object" && body.reasoning.effort === "max") {
+      body.reasoning.effort = "xhigh";
+    }
+  }
+
   return body;
 }
