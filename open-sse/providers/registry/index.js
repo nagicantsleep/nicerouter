@@ -128,6 +128,7 @@ import pAgentRouter from "./agentrouter.js";
 import pSeekAi from "./seekai.js";
 import pRamclouds from "./ramclouds.js";
 import pVyceAi from "./vyceai.js";
+import pKiraAi from "./kiraai.js";
 export default [
   p0,
   p1,
@@ -256,4 +257,5 @@ export default [
   pSeekAi,
   pRamclouds,
   pVyceAi,
+  pKiraAi,
 ];
