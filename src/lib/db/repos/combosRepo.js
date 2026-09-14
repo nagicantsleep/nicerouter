@@ -9,14 +9,22 @@ function rowToCombo(row) {
     name: row.name,
     kind: row.kind,
     models: parseJson(row.models, []),
+    isActive: row.isActive === undefined || row.isActive === null ? true : (row.isActive === 1 || row.isActive === true),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
-export async function getCombos() {
+export async function getCombos(filter = {}) {
   const db = await getAdapter();
-  const rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`);
+  let query = `SELECT * FROM combos`;
+  const params = [];
+  if (filter.isActive !== undefined) {
+    query += ` WHERE isActive = ?`;
+    params.push(filter.isActive ? 1 : 0);
+  }
+  query += ` ORDER BY createdAt ASC`;
+  const rows = db.all(query, params);
   return rows.map(rowToCombo);
 }
 
@@ -40,12 +48,13 @@ export async function createCombo(data) {
     name: data.name,
     kind: data.kind || null,
     models: data.models || [],
+    isActive: data.isActive !== false,
     createdAt: now,
     updatedAt: now,
   };
   db.run(
-    `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
-    [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.createdAt, combo.updatedAt]
+    `INSERT INTO combos(id, name, kind, models, isActive, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+    [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.isActive ? 1 : 0, combo.createdAt, combo.updatedAt]
   );
   return combo;
 }
@@ -58,8 +67,8 @@ export async function updateCombo(id, data) {
     if (!row) return;
     const merged = { ...rowToCombo(row), ...data, updatedAt: new Date().toISOString() };
     db.run(
-      `UPDATE combos SET name = ?, kind = ?, models = ?, updatedAt = ? WHERE id = ?`,
-      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.updatedAt, id]
+      `UPDATE combos SET name = ?, kind = ?, models = ?, isActive = ?, updatedAt = ? WHERE id = ?`,
+      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.isActive !== false ? 1 : 0, merged.updatedAt, id]
     );
     result = merged;
   });

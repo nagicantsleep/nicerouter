@@ -129,6 +129,8 @@ import pSeekAi from "./seekai.js";
 import pRamclouds from "./ramclouds.js";
 import pVyceAi from "./vyceai.js";
 import pKiraAi from "./kiraai.js";
+import pOrca from "./orca.js";
+import pBai from "./bai.js";
 export default [
   p0,
   p1,
@@ -258,4 +260,6 @@ export default [
   pRamclouds,
   pVyceAi,
   pKiraAi,
+  pOrca,
+  pBai,
 ];

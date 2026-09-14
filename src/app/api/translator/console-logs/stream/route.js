@@ -7,7 +7,14 @@ initConsoleLogCapture();
 export async function GET(request) {
   const encoder = new TextEncoder();
   const emitter = getConsoleEmitter();
-  const state = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null };
+  const state = {
+    closed: false,
+    send: null,
+    sendLines: null,
+    sendEntries: null,
+    sendClear: null,
+    keepalive: null,
+  };
 
   // Idempotent: safe to call from request.signal abort, cancel(), or enqueue failure.
   const cleanup = () => {
@@ -15,12 +22,11 @@ export async function GET(request) {
     state.closed = true;
     if (state.send) emitter.off("line", state.send);
     if (state.sendLines) emitter.off("lines", state.sendLines);
+    if (state.sendEntries) emitter.off("entries", state.sendEntries);
     if (state.sendClear) emitter.off("clear", state.sendClear);
     if (state.keepalive) clearInterval(state.keepalive);
   };
 
-  // request.signal fires reliably on client disconnect; ReadableStream.cancel()
-  // is not always invoked in Next.js, which caused listeners to accumulate.
   request.signal.addEventListener("abort", cleanup, { once: true });
 
   const stream = new ReadableStream({
@@ -31,7 +37,17 @@ export async function GET(request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "init", logs: buffered })}\n\n`));
       }
 
-      // Push new lines as they arrive
+      // Push structured entries
+      state.sendEntries = (entries) => {
+        if (state.closed || !Array.isArray(entries) || entries.length === 0) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "entries", entries })}\n\n`));
+        } catch {
+          cleanup();
+        }
+      };
+
+      // Push new lines as they arrive (backward compatibility)
       state.send = (line) => {
         if (state.closed) return;
         try {
@@ -60,13 +76,17 @@ export async function GET(request) {
         }
       };
 
+      emitter.on("entries", state.sendEntries);
       emitter.on("line", state.send);
       emitter.on("lines", state.sendLines);
       emitter.on("clear", state.sendClear);
 
       // Keepalive ping every 25s
       state.keepalive = setInterval(() => {
-        if (state.closed) { clearInterval(state.keepalive); return; }
+        if (state.closed) {
+          clearInterval(state.keepalive);
+          return;
+        }
         try {
           controller.enqueue(encoder.encode(": ping\n\n"));
         } catch {

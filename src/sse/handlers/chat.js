@@ -95,6 +95,12 @@ export async function handleChat(request, clientRawRequest = null) {
   // Check if model is a combo (has multiple models with fallback)
   const comboModels = await getComboModels(modelStr);
   if (comboModels) {
+    if (comboModels.disabled) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `Combo "${modelStr}" is disabled.`);
+    }
+    if (comboModels.length === 0) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `All models in combo "${modelStr}" are disabled.`);
+    }
     // Check for combo-specific strategy first, fallback to global
     const comboStrategies = settings.comboStrategies || {};
     const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
@@ -170,6 +176,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   if (!modelInfo.provider) {
     const comboModels = await getComboModels(modelStr);
     if (comboModels) {
+      if (comboModels.disabled) {
+        return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `Combo "${modelStr}" is disabled.`);
+      }
+      if (comboModels.length === 0) {
+        return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `All models in combo "${modelStr}" are disabled.`);
+      }
       const chatSettings = await getSettings();
       // Check for combo-specific strategy first, fallback to global
       const comboStrategies = chatSettings.comboStrategies || {};

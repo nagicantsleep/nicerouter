@@ -1,12 +1,27 @@
 services:
-  9router:
+  # 1. Reverse Proxy / Load Balancer (Nginx)
+  lb:
+    image: nginx:alpine
+    container_name: 9router-lb
+    restart: always
+    ports:
+      - "20128:20128" # Port duy nhất mở ra máy host cho CLI/Tools trỏ vào
+    volumes:
+      - ./nginx-lb.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - 9router-1
+      - 9router-2
+
+  # 2. Node 1 (Primary worker)
+  9router-1:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: 9router
+    image: 9router:local
+    container_name: 9router-1
     restart: always
-    ports:
-      - "20128:20128"
+    expose:
+      - "20128"
     volumes:
       - 9router-data:/app/data
     env_file:
@@ -17,6 +32,30 @@ services:
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
       HEADROOM_URL: http://headroom:8787
+    depends_on:
+      - headroom
+
+  # 3. Node 2 (Hot Standby - dự phòng 24/7)
+  9router-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 9router:local
+    container_name: 9router-2
+    restart: always
+    expose:
+      - "20128"
+    volumes:
+      - 9router-data:/app/data # Dùng chung volume dữ liệu cục bộ
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      HEADROOM_URL: http://headroom:8787
+      DISABLE_BACKGROUND_TOKEN_REFRESH: "1" # Tắt timer background refresh để tránh tranh chấp với Node 1
     depends_on:
       - headroom
 

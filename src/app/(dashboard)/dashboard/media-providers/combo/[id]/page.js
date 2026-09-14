@@ -3,16 +3,18 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
+import { Card, Button, Input, Toggle, Badge, ModelSelectModal } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 
-// Parse "providerId/model" or just "providerId" → { providerId, model }
+// Parse "providerId/model" or just "providerId" or object → { providerId, model, enabled }
 function parseModelEntry(entry) {
-  if (typeof entry !== "string") return { providerId: "", model: "" };
-  const idx = entry.indexOf("/");
-  if (idx < 0) return { providerId: entry, model: "" };
-  return { providerId: entry.slice(0, idx), model: entry.slice(idx + 1) };
+  const modelStr = typeof entry === "string" ? entry : (entry?.model || entry?.id || entry?.name || "");
+  const enabled = typeof entry === "object" ? entry.enabled !== false : true;
+  if (!modelStr) return { providerId: "", model: "", enabled };
+  const idx = modelStr.indexOf("/");
+  if (idx < 0) return { providerId: modelStr, model: "", enabled };
+  return { providerId: modelStr.slice(0, idx), model: modelStr.slice(idx + 1), enabled };
 }
 
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -111,6 +113,11 @@ export default function ComboDetailPage() {
     return true;
   };
 
+  const handleToggleActive = async (enabled) => {
+    setCombo((prev) => ({ ...prev, isActive: enabled }));
+    await saveCombo({ isActive: enabled });
+  };
+
   const handleSaveName = async () => {
     if (!validateName(name)) return;
     if (name === combo.name) return;
@@ -120,7 +127,7 @@ export default function ComboDetailPage() {
 
   const handleAddModel = async (model) => {
     const value = model?.value || model;
-    if (!value || providers.includes(value)) return;
+    if (!value || providers.some((p) => (typeof p === "string" ? p : p.model) === value)) return;
     const next = [...providers, value];
     setProviders(next);
     await saveCombo({ models: next });
@@ -128,8 +135,18 @@ export default function ComboDetailPage() {
 
   const handleDeselectModel = async (model) => {
     const value = model?.value || model;
-    if (!value || !providers.includes(value)) return;
-    const next = providers.filter((p) => p !== value);
+    if (!value) return;
+    const next = providers.filter((p) => (typeof p === "string" ? p : p.model) !== value);
+    setProviders(next);
+    await saveCombo({ models: next });
+  };
+
+  const handleToggleProvider = async (idx) => {
+    const entry = providers[idx];
+    const { providerId, model, enabled } = parseModelEntry(entry);
+    const full = model ? `${providerId}/${model}` : providerId;
+    const nextEntry = enabled ? { model: full, enabled: false } : full;
+    const next = providers.map((p, i) => (i === idx ? nextEntry : p));
     setProviders(next);
     await saveCombo({ models: next });
   };
@@ -252,7 +269,10 @@ export default function ComboDetailPage() {
           </div>
           <div className="min-w-0">
             <p className="text-xs text-text-muted">{kindLabel} Combo</p>
-            <code className="text-lg font-semibold font-mono">{combo.name}</code>
+            <div className="flex items-center gap-2">
+              <code className={`text-lg font-semibold font-mono ${combo.isActive === false ? "line-through text-text-muted" : ""}`}>{combo.name}</code>
+              {combo.isActive === false && <Badge variant="default" size="sm">Disabled</Badge>}
+            </div>
           </div>
         </div>
         <Button variant="outline" icon="delete" onClick={handleDelete} className="text-red-500 border-red-200 hover:bg-red-50">
@@ -267,6 +287,13 @@ export default function ComboDetailPage() {
           <div>
             <Input label="Combo Name" value={name} onChange={(e) => { setName(e.target.value); validateName(e.target.value); }} onBlur={handleSaveName} error={nameError} />
             <p className="text-[10px] text-text-muted mt-0.5">Only letters, numbers, -, _ and .</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Enabled</p>
+              <p className="text-xs text-text-muted">Enable or disable this combo for routing and model listings.</p>
+            </div>
+            <Toggle checked={combo.isActive !== false} onChange={handleToggleActive} />
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -294,10 +321,12 @@ export default function ComboDetailPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {providers.map((entry, idx) => {
-              const { providerId, model } = parseModelEntry(entry);
+              const { providerId, model, enabled } = parseModelEntry(entry);
               const p = AI_PROVIDERS[providerId];
               return (
-                <div key={`${entry}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
+                <div key={`${entry?.model || entry}-${idx}`} className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
+                  enabled ? "bg-black/[0.02] dark:bg-white/[0.02]" : "bg-black/[0.01] dark:bg-white/[0.01] opacity-60"
+                }`}>
                   <span className="text-xs text-text-muted w-5 text-center">{idx + 1}</span>
                   <ProviderIcon
                     src={`/providers/${providerId}.png`}
@@ -308,9 +337,17 @@ export default function ComboDetailPage() {
                     fallbackColor={p?.color}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{p?.name || providerId}</div>
+                    <div className={`text-sm font-medium truncate ${!enabled ? "line-through text-text-muted" : ""}`}>
+                      {p?.name || providerId}
+                      {!enabled && <span className="ml-1.5 text-[10px] no-underline font-normal text-amber-600 dark:text-amber-400">(disabled)</span>}
+                    </div>
                     {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
                   </div>
+                  <Toggle
+                    checked={enabled}
+                    onChange={() => handleToggleProvider(idx)}
+                    size="sm"
+                  />
                   <div className="flex items-center gap-0.5">
                     <button onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={`p-1 rounded ${idx === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move up">
                       <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
@@ -403,7 +440,7 @@ export default function ComboDetailPage() {
           modelAliases={modelAliases}
           title={`Add ${kindLabel} Model`}
           kindFilter={combo.kind}
-          addedModelValues={providers}
+          addedModelValues={providers.map((p) => typeof p === "string" ? p : p.model)}
           closeOnSelect={false}
         />
       )}

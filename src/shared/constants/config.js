@@ -55,9 +55,11 @@ export const API_ENDPOINTS = {
 };
 
 export const CONSOLE_LOG_CONFIG = {
-  maxLines: 200,
+  maxLines: 1000,
   pollIntervalMs: 1000,
+  maxDiskSizeBytes: 5 * 1024 * 1024, // 5MB per error log file
 };
+
 
 // Client-side store TTL: how long fetched data stays fresh before re-fetching
 export const CLIENT_STORE_TTL_MS = 60000;

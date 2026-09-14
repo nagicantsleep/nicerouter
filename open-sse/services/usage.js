@@ -72,6 +72,7 @@ const USAGE_HANDLERS = {
   seekai: (c) => getOpenAIBillingUsage("SeekAI", "https://seekai.cc/v1", c.apiKey, c.proxyOptions),
   agentrouter: (c) => getOpenAIBillingUsage("AgentRouter", "https://agentrouter.org/v1", c.apiKey, c.proxyOptions),
   ramclouds: (c) => getOpenAIBillingUsage("Ramclouds", "https://ramclouds.me/v1", c.apiKey, c.proxyOptions),
+  orca: (c) => getOpenAIBillingUsage("OrcaRouter", "https://api.orcarouter.ai/v1", c.apiKey, c.proxyOptions),
 };
 
 export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {

@@ -141,6 +141,21 @@ export default function CombosPage() {
     }
   };
 
+  const handleToggleComboModel = async (combo, modelIndex) => {
+    const nextModels = combo.models.map((m, idx) => {
+      if (idx !== modelIndex) return m;
+      const currentName = typeof m === "string" ? m : (m?.model || m?.id || m?.name || "");
+      const currentEnabled = typeof m === "string" ? true : m?.enabled !== false;
+      return currentEnabled ? { model: currentName, enabled: false } : currentName;
+    });
+    await handleUpdate(combo.id, { models: nextModels });
+  };
+
+  const handleToggleComboActive = async (combo, isActive) => {
+    setCombos((prev) => prev.map((c) => (c.id === combo.id ? { ...c, isActive } : c)));
+    await handleUpdate(combo.id, { isActive });
+  };
+
   const handleDelete = async (id) => {
     setConfirmState({
       title: "Delete Combo",
@@ -238,6 +253,8 @@ export default function CombosPage() {
               onCopy={copy}
               onEdit={() => setEditingCombo(combo)}
               onDelete={() => handleDelete(combo.id)}
+              onToggleModel={handleToggleComboModel}
+              onToggleActive={handleToggleComboActive}
               strategy={comboStrategies[combo.name] || {}}
               onSetStrategy={(patch) => handleSetComboStrategy(combo.name, patch)}
             />
@@ -294,37 +311,76 @@ const STRATEGY_OPTIONS = [
   { value: "fusion", label: "Fusion — panel + judge" },
 ];
 
-function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }) {
+function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, onToggleModel, onToggleActive, strategy = {}, onSetStrategy }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
+  const isActive = combo.isActive !== false;
+
+  const getModelName = (m) => (typeof m === "string" ? m : m?.model || m?.id || m?.name || "");
+  const isModelEnabled = (m) => (typeof m === "string" ? true : m?.enabled !== false);
+
+  const totalModels = combo.models.length;
+  const activeModels = combo.models.filter(isModelEnabled).length;
+  const autoJudge = getModelName(combo.models.find(isModelEnabled) || combo.models[0]);
 
   return (
-    <Card padding="sm" className="group">
+    <Card padding="sm" className={`group ${!isActive ? "opacity-60" : ""}`}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
           <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
           </div>
           <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
+            <div className="flex items-center gap-2">
+              <code className={`block truncate font-mono text-sm font-medium ${!isActive ? "line-through text-text-muted" : ""}`}>{combo.name}</code>
+              {!isActive && (
+                <span className="rounded bg-black/10 dark:bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                  Disabled
+                </span>
+              )}
+              {isActive && totalModels > 0 && activeModels < totalModels && (
+                <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                  {activeModels}/{totalModels} active
+                </span>
+              )}
+            </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
               {combo.models.length === 0 ? (
                 <span className="text-xs text-text-muted italic">No models</span>
               ) : (
-                combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
-                    <span>{model}</span>
-                    <CapacityBadges caps={getCaps?.(model)} />
-                  </code>
-                ))
-              )}
-              {combo.models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
+                combo.models.map((model, index) => {
+                  const name = getModelName(model);
+                  const enabled = isModelEnabled(model);
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleModel?.(combo, index);
+                      }}
+                      title={`${name} — ${enabled ? "Enabled (click to disable)" : "Disabled (click to enable)"}`}
+                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-xs transition-colors cursor-pointer ${
+                        enabled
+                          ? "bg-black/5 hover:bg-black/10 text-text-main dark:bg-white/5 dark:hover:bg-white/10"
+                          : "bg-black/[0.02] dark:bg-white/[0.02] text-text-muted/50 line-through hover:text-text-muted"
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-[13px] ${
+                        enabled ? "text-emerald-500" : "text-amber-500/70"
+                      }`}>
+                        {enabled ? "check" : "block"}
+                      </span>
+                      <span>{name}</span>
+                      <CapacityBadges caps={getCaps?.(name)} />
+                    </button>
+                  );
+                })
               )}
             </div>
-            {/* Fusion: judge picker (Auto = first model) */}
+            {/* Fusion: judge picker (Auto = first enabled model) */}
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-[11px] font-medium text-text-muted">Judge</span>
@@ -334,7 +390,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                   title="Pick the model that fuses panel answers"
                 >
                   <span className="material-symbols-outlined text-[13px]">gavel</span>
-                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
+                  <span className="truncate">{judge || `Auto — ${autoJudge || "first model"}`}</span>
                 </button>
                 {judge && (
                   <button
@@ -359,36 +415,45 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               value={current}
               onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
               selectClassName="py-1.5 text-xs"
+              disabled={!isActive}
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button
-              onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              title="Copy combo name"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {copied === `combo-${combo.id}` ? "check" : "content_copy"}
-              </span>
-              <span className="text-[10px] leading-tight">Copy</span>
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              title="Edit"
-            >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[10px] leading-tight">Edit</span>
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
-              title="Delete"
-            >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[10px] leading-tight">Delete</span>
-            </button>
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <Toggle
+              size="sm"
+              checked={isActive}
+              onChange={(checked) => onToggleActive?.(combo, checked)}
+              title={isActive ? "Disable combo" : "Enable combo"}
+            />
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+                title="Copy combo name"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {copied === `combo-${combo.id}` ? "check" : "content_copy"}
+                </span>
+                <span className="text-[10px] leading-tight">Copy</span>
+              </button>
+              <button
+                onClick={onEdit}
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+                title="Edit"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span>
+                <span className="text-[10px] leading-tight">Edit</span>
+              </button>
+              <button
+                onClick={onDelete}
+                className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
+                title="Delete"
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+                <span className="text-[10px] leading-tight">Delete</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -552,7 +617,15 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
   );
 }
 
-function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }) {
+function normalizeEntry(m) {
+  if (typeof m === "string") return { model: m, enabled: true };
+  if (m && typeof m === "object") {
+    return { model: m.model || m.id || m.name || "", enabled: m.enabled !== false };
+  }
+  return { model: String(m || ""), enabled: true };
+}
+
+function ModelItem({ id, index, item, isFirst, isLast, onToggle, onEdit, onMoveUp, onMoveDown, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -560,25 +633,34 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 999 : undefined,
   };
+  const modelName = typeof item === "string" ? item : (item?.model || item?.id || item?.name || "");
+  const isEnabled = typeof item === "string" ? true : item?.enabled !== false;
+
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(model);
+  const [draft, setDraft] = useState(modelName);
   const commit = () => {
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== model) onEdit(trimmed);
-    else setDraft(model);
+    if (trimmed && trimmed !== modelName) onEdit(trimmed);
+    else setDraft(modelName);
     setEditing(false);
   };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") commit();
-    if (e.key === "Escape") { setDraft(model); setEditing(false); }
+    if (e.key === "Escape") { setDraft(modelName); setEditing(false); }
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
+      className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 transition-colors ${
+        isDragging ? "shadow-md ring-1 ring-primary/30 " : ""
+      }${
+        isEnabled
+          ? "bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]"
+          : "bg-black/[0.01] hover:bg-black/[0.02] dark:bg-white/[0.01] opacity-60"
+      }`}
     >
       {/* Drag handle */}
       <button
@@ -598,6 +680,22 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       {/* Index badge */}
       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
 
+      {/* Enable/disable toggle */}
+      <button
+        type="button"
+        onClick={onToggle}
+        title={isEnabled ? "Enabled (click to disable)" : "Disabled (click to enable)"}
+        className={`p-0.5 rounded transition-all shrink-0 flex items-center justify-center ${
+          isEnabled
+            ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+            : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+        }`}
+      >
+        <span className="material-symbols-outlined text-[16px]">
+          {isEnabled ? "check_circle" : "cancel"}
+        </span>
+      </button>
+
       {/* Inline editable model value */}
       {editing ? (
         <input
@@ -610,11 +708,20 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         />
       ) : (
         <div
-          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+          className={`min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs ${
+            isEnabled
+              ? "text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+              : "text-text-muted line-through hover:bg-black/5 dark:hover:bg-white/5"
+          }`}
           onClick={() => setEditing(true)}
           title="Click to edit"
         >
-          {model}
+          {modelName}
+          {!isEnabled && (
+            <span className="ml-1.5 text-[10px] font-sans no-underline inline-block text-amber-600 dark:text-amber-400 font-normal">
+              (disabled)
+            </span>
+          )}
         </div>
       )}
 
@@ -653,7 +760,8 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
 function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindFilter = null }) {
   // Initialize state with combo values - key prop on parent handles reset on remount
   const [name, setName] = useState(combo?.name || "");
-  const [models, setModels] = useState(combo?.models || []);
+  const [models, setModels] = useState(() => (combo?.models || []).map(normalizeEntry));
+  const [isActive, setIsActive] = useState(combo ? combo.isActive !== false : true);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
@@ -665,7 +773,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
   );
 
   // Use stable index-based IDs so duplicates and similar names are handled correctly
-  const modelItems = models.map((model, i) => ({ uid: `item-${i}`, model }));
+  const modelItems = models.map((item, i) => ({ uid: `item-${i}`, item }));
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
@@ -714,17 +822,27 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
   };
 
   const handleAddModel = (model) => {
-    if (!models.includes(model.value)) {
-      setModels([...models, model.value]);
+    const val = model?.value || model;
+    if (!models.some((m) => m.model === val)) {
+      setModels([...models, { model: val, enabled: true }]);
     }
   };
 
   const handleDeselectModel = (model) => {
-    setModels(models.filter((m) => m !== model.value));
+    const val = model?.value || model;
+    setModels(models.filter((m) => m.model !== val));
   };
 
   const handleRemoveModel = (index) => {
     setModels(models.filter((_, i) => i !== index));
+  };
+
+  const handleToggleModel = (index) => {
+    setModels(models.map((m, i) => (i === index ? { ...m, enabled: !m.enabled } : m)));
+  };
+
+  const handleEditModel = (index, newVal) => {
+    setModels(models.map((m, i) => (i === index ? { ...m, model: newVal } : m)));
   };
 
   const handleMoveUp = (index) => {
@@ -744,7 +862,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
   const handleSave = async () => {
     if (!validateName(name)) return;
     setSaving(true);
-    await onSave({ name: name.trim(), models });
+    const serializedModels = models.map((m) => (m.enabled === false ? { model: m.model, enabled: false } : m.model));
+    await onSave({ name: name.trim(), models: serializedModels, isActive });
     setSaving(false);
   };
 
@@ -772,9 +891,25 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
             </p>
           </div>
 
+          {/* Active status */}
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <label className="text-sm font-medium">Enabled</label>
+              <p className="text-[10px] text-text-muted">Enable or disable this combo for routing</p>
+            </div>
+            <Toggle checked={isActive} onChange={setIsActive} />
+          </div>
+
           {/* Models */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Models</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium">Models</label>
+              {models.length > 0 && (
+                <span className="text-[11px] text-text-muted">
+                  {models.filter((m) => m.enabled !== false).length}/{models.length} active
+                </span>
+              )}
+            </div>
 
             {models.length === 0 ? (
               <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
@@ -785,19 +920,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
               <SortableContext items={modelItems.map((m) => m.uid)} strategy={verticalListSortingStrategy}>
                 <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
-                  {modelItems.map(({ uid, model }, index) => (
+                  {modelItems.map(({ uid, item }, index) => (
                     <ModelItem
                       key={uid}
                       id={uid}
                       index={index}
-                      model={model}
+                      item={item}
                       isFirst={index === 0}
                       isLast={index === modelItems.length - 1}
-                      onEdit={(newVal) => {
-                        const updated = [...models];
-                        updated[index] = newVal;
-                        setModels(updated);
-                      }}
+                      onToggle={() => handleToggleModel(index)}
+                      onEdit={(newVal) => handleEditModel(index, newVal)}
                       onMoveUp={() => handleMoveUp(index)}
                       onMoveDown={() => handleMoveDown(index)}
                       onRemove={() => handleRemoveModel(index)}
@@ -846,7 +978,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
           modelAliases={modelAliases}
           title="Add Model to Combo"
           kindFilter={kindFilter}
-          addedModelValues={models}
+          addedModelValues={models.map((m) => m.model)}
           closeOnSelect={false}
         />
       )}

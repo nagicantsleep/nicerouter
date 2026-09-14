@@ -36,6 +36,30 @@ const UNIX_TAILSCALE_CANDIDATES = [
   "/snap/bin/tailscale",   // Snap package
 ];
 
+const UNIX_TAILSCALED_CANDIDATES = [
+  "/usr/sbin/tailscaled",
+  "/usr/local/bin/tailscaled",
+  "/opt/homebrew/bin/tailscaled",
+  "/usr/bin/tailscaled",
+  "/snap/bin/tailscaled",
+];
+
+export function getTailscaledBin() {
+  if (IS_WINDOWS) return null;
+  const found = UNIX_TAILSCALED_CANDIDATES.find((p) => fs.existsSync(p));
+  return found || "tailscaled";
+}
+
+function hasSudo() {
+  if (IS_WINDOWS) return false;
+  try {
+    execSync("which sudo 2>/dev/null", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Cache + background refresh (avoid blocking event loop on dead daemon) ──
 const PROBE_TTL_MS = 10000;
 const PROBE_TIMEOUT_MS = 1500;
@@ -557,7 +581,8 @@ export async function startDaemonWithPassword(sudoPassword) {
 
   const currentMode = isDaemonTunMode(); // true=TUN, false=userspace, null=not running
   // No password but a healthy TUN daemon already runs → keep TUN, never downgrade-kill it.
-  const wantTun = sudoPassword ? true : currentMode === true;
+  const sudoAvailable = hasSudo();
+  const wantTun = (sudoPassword && sudoAvailable) ? true : (sudoAvailable && currentMode === true);
 
   // Daemon already running in correct mode → reuse
   if (currentMode !== null && currentMode === wantTun) {
@@ -573,9 +598,9 @@ export async function startDaemonWithPassword(sudoPassword) {
 
   // Mode mismatch or unresponsive → kill all daemons on our socket
   try { execSync(`pkill -9 -f "tailscaled.*${TAILSCALE_SOCKET}"`, { stdio: "ignore", timeout: 3000 }); } catch { /* ignore */ }
-  if (sudoPassword) {
+  if (sudoPassword && sudoAvailable) {
     try { await execWithPassword(`pkill -9 -f "tailscaled.*${TAILSCALE_SOCKET}"`, sudoPassword); } catch { /* ignore */ }
-  } else {
+  } else if (sudoAvailable) {
     try { execSync(`sudo -n pkill -9 -f "tailscaled.*${TAILSCALE_SOCKET}"`, { stdio: "ignore", timeout: 3000 }); } catch { /* ignore */ }
   }
   await new Promise((r) => setTimeout(r, 1500));
@@ -583,14 +608,14 @@ export async function startDaemonWithPassword(sudoPassword) {
   // Reclaim folder ownership (previous root daemon may have locked it)
   await ensureUserOwnedDir(TAILSCALE_DIR);
 
-  const tailscaledBin = IS_MAC ? "/usr/local/bin/tailscaled" : "tailscaled";
+  const tailscaledBin = IS_MAC ? "/usr/local/bin/tailscaled" : getTailscaledBin();
   const daemonArgs = [
     `--socket=${TAILSCALE_SOCKET}`,
     `--statedir=${TAILSCALE_DIR}`,
   ];
   if (!wantTun) daemonArgs.push("--tun=userspace-networking");
 
-  if (wantTun) {
+  if (wantTun && sudoAvailable) {
     // TUN mode: spawn via sudo, password via stdin. Detached so it survives parent exit.
     const child = spawn("sudo", ["-S", tailscaledBin, ...daemonArgs], {
       detached: true,
@@ -598,6 +623,7 @@ export async function startDaemonWithPassword(sudoPassword) {
       cwd: os.tmpdir(),
       env: { ...process.env, PATH: EXTENDED_PATH },
     });
+    child.on("error", (err) => console.error("[Tailscale] daemon sudo spawn error:", err.message));
     child.stdin.write(`${sudoPassword}\n`);
     child.stdin.end();
     child.unref();
@@ -608,6 +634,7 @@ export async function startDaemonWithPassword(sudoPassword) {
       cwd: os.tmpdir(),
       env: { ...process.env, PATH: EXTENDED_PATH },
     });
+    child.on("error", (err) => console.error("[Tailscale] daemon spawn error:", err.message));
     child.unref();
   }
 

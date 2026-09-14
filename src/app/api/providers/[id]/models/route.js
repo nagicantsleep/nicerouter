@@ -244,6 +244,8 @@ const PROVIDER_MODELS_CONFIG = {
   ramclouds: createOpenAIModelsConfig("https://ramclouds.me/v1/models"),
   vyceai: createOpenAIModelsConfig("https://vyceai.com/v1/models"),
   kiraai: createOpenAIModelsConfig("https://kiraai.vn/api/v1/models"),
+  orca: createOpenAIModelsConfig("https://api.orcarouter.ai/v1/models"),
+  bai: createOpenAIModelsConfig("https://api.b.ai/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),

@@ -285,6 +285,39 @@ describe("dashboard guard local-only access", () => {
 
     expect(response).toBe(mocks.nextResponse);
   });
+
+  it("allows local-only route from Docker bridge peer when in Docker with loopback host", async () => {
+    const fs = await import("fs");
+    const existsSyncSpy = vi.spyOn(fs.default, "existsSync").mockImplementation((p) => p === "/.dockerenv");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+
+    const response = await proxy(request("/api/tunnel/tailscale-check", {
+      host: "localhost:20128",
+      origin: "http://localhost:20128",
+      "x-9r-peer-token": PEER_TOKEN,
+      "x-9r-real-ip": "172.31.0.1",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+    existsSyncSpy.mockRestore();
+  });
+
+  it("rejects local-only route from Docker bridge peer when Host is not loopback", async () => {
+    const fs = await import("fs");
+    const existsSyncSpy = vi.spyOn(fs.default, "existsSync").mockImplementation((p) => p === "/.dockerenv");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+
+    const response = await proxy(request("/api/tunnel/tailscale-check", {
+      host: "evil.example.com",
+      origin: "http://localhost:20128",
+      "x-9r-peer-token": PEER_TOKEN,
+      "x-9r-real-ip": "172.31.0.1",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Local only: CLI token required");
+    existsSyncSpy.mockRestore();
+  });
 });
 
 describe("dashboard guard helpers", () => {

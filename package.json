@@ -14,7 +14,11 @@
     "build:bun": "bun --bun next build --webpack",
     "start:bun": "bun ./.next/standalone/custom-server.js",
     "cli:pack": "npm --prefix cli run pack:cli",
-    "cli:publish": "npm --prefix cli run publish:cli"
+    "cli:publish": "npm --prefix cli run publish:cli",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reload": "powershell -ExecutionPolicy Bypass -File ./scripts/rolling-reload.ps1",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

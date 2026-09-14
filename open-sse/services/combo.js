@@ -245,6 +245,24 @@ export function resetComboRotation(comboName) {
   else comboRotationState.clear();
 }
 
+export function isComboModelEnabled(m) {
+  if (typeof m === "string") return true;
+  return m?.enabled !== false;
+}
+
+export function getComboModelName(m) {
+  if (typeof m === "string") return m;
+  return m?.model || m?.id || m?.name || "";
+}
+
+export function getEnabledComboModels(models) {
+  if (!Array.isArray(models)) return [];
+  return models
+    .filter(isComboModelEnabled)
+    .map(getComboModelName)
+    .filter(Boolean);
+}
+
 /**
  * Get combo models from combos data
  * @param {string} modelStr - Model string to check
@@ -259,8 +277,14 @@ export function getComboModelsFromData(modelStr, combosData) {
   const combos = Array.isArray(combosData) ? combosData : (combosData?.combos || []);
   
   const combo = combos.find(c => c.name === modelStr);
-  if (combo && combo.models && combo.models.length > 0) {
-    return combo.models;
+  if (combo) {
+    if (combo.isActive === false) {
+      return { disabled: true, combo };
+    }
+    if (combo.models && combo.models.length > 0) {
+      return getEnabledComboModels(combo.models);
+    }
+    return [];
   }
   return null;
 }
@@ -278,6 +302,32 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @returns {Promise<Response>}
  */
 export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
+  if (models?.disabled) {
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: `Combo "${comboName || "unknown"}" is disabled.`,
+          type: "service_unavailable",
+          code: "combo_disabled",
+        },
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!models || models.length === 0) {
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: `All models in combo "${comboName || "unknown"}" are disabled.`,
+          type: "service_unavailable",
+          code: "combo_all_models_disabled",
+        },
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 

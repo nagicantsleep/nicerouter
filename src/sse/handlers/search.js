@@ -72,6 +72,12 @@ export async function handleSearch(request) {
   const combos = await getCombos();
   const comboModels = getComboModelsFromData(providerInput, combos);
   if (comboModels) {
+    if (comboModels.disabled) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `Combo "${providerInput}" is disabled.`);
+    }
+    if (comboModels.length === 0) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `All providers in combo "${providerInput}" are disabled.`);
+    }
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;

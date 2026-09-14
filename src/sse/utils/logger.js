@@ -40,7 +40,7 @@ export function line(tag, symbol, message) {
 
 // Like line() but always printed regardless of LOG_LEVEL (errors must never be hidden)
 export function errorLine(tag, symbol, message) {
-  console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
+  console.error(`[${formatTime()}] ${tag} ${symbol} ${message}`);
 }
 
 // Format thinking intent for the request line ("high(10k)" / "off" / "auto")
@@ -59,8 +59,32 @@ export function fmtThink(intent) {
 function formatData(data) {
   if (!data) return "";
   if (typeof data === "string") return data;
+  if (data instanceof Error) {
+    const details = [];
+    if (data.code) details.push(`code: ${data.code}`);
+    if (data.status || data.statusCode) details.push(`status: ${data.status || data.statusCode}`);
+    if (data.cause) details.push(`cause: ${data.cause?.message || String(data.cause)}`);
+    if (data.response?.data) {
+      try {
+        details.push(`upstream: ${typeof data.response.data === "object" ? JSON.stringify(data.response.data) : String(data.response.data)}`);
+      } catch {}
+    }
+    const metaStr = details.length > 0 ? ` (${details.join(", ")})` : "";
+    return (data.stack || data.message || String(data)) + metaStr;
+  }
   try {
-    return JSON.stringify(data);
+    return JSON.stringify(data, (key, value) => {
+      if (value instanceof Error) {
+        return {
+          name: value.name,
+          message: value.message,
+          code: value.code,
+          status: value.status,
+          stack: value.stack,
+        };
+      }
+      return value;
+    });
   } catch {
     return String(data);
   }
@@ -90,7 +114,7 @@ export function warn(tag, message, data) {
 export function error(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.ERROR) {
     const dataStr = data ? ` ${formatData(data)}` : "";
-    console.log(`[${formatTime()}] ❌ [${tag}] ${message}${dataStr}`);
+    console.error(`[${formatTime()}] ❌ [${tag}] ${message}${dataStr}`);
   }
 }
 

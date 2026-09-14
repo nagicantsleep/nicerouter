@@ -2,6 +2,24 @@
  * Shared combo (model combo) handling with fallback support
  */
 
+export function isComboModelEnabled(m) {
+  if (typeof m === "string") return true;
+  return m?.enabled !== false;
+}
+
+export function getComboModelName(m) {
+  if (typeof m === "string") return m;
+  return m?.model || m?.id || m?.name || "";
+}
+
+export function getEnabledComboModels(models) {
+  if (!Array.isArray(models)) return [];
+  return models
+    .filter(isComboModelEnabled)
+    .map(getComboModelName)
+    .filter(Boolean);
+}
+
 /**
  * Get combo models from combos data
  * @param {string} modelStr - Model string to check
@@ -17,7 +35,7 @@ export function getComboModelsFromData(modelStr, combosData) {
   
   const combo = combos.find(c => c.name === modelStr);
   if (combo && combo.models && combo.models.length > 0) {
-    return combo.models;
+    return getEnabledComboModels(combo.models);
   }
   return null;
 }

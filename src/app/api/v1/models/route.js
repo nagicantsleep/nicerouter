@@ -304,6 +304,7 @@ export async function buildModelsList(kindFilter, options = {}) {
 
   // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
   for (const combo of combos) {
+    if (combo.isActive === false) continue;
     if (!comboMatchesKinds(combo, kindFilter)) continue;
     const entry = {
       id: combo.name,

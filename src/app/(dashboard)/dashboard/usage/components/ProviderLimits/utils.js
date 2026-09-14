@@ -664,6 +664,7 @@ export function parseQuotaData(provider, data) {
       case "seekai":
       case "agentrouter":
       case "ramclouds":
+      case "orca":
         if (data.quotas) {
           Object.entries(data.quotas).forEach(([name, quota]) => {
             normalizedQuotas.push({

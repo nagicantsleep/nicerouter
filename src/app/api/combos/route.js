@@ -7,9 +7,14 @@ export const dynamic = "force-dynamic";
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
 // GET /api/combos - Get all combos
-export async function GET() {
+export async function GET(request) {
   try {
-    const combos = await getCombos();
+    const { searchParams } = new URL(request.url);
+    const filter = {};
+    if (searchParams.has("isActive")) {
+      filter.isActive = searchParams.get("isActive") === "true";
+    }
+    const combos = await getCombos(filter);
     return NextResponse.json({ combos });
   } catch (error) {
     console.log("Error fetching combos:", error);
@@ -21,7 +26,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, models, kind } = body;
+    const { name, models, kind, isActive } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -38,7 +43,12 @@ export async function POST(request) {
       return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
     }
 
-    const combo = await createCombo({ name, models: models || [], kind: kind || null });
+    const combo = await createCombo({
+      name,
+      models: models || [],
+      kind: kind || null,
+      isActive: isActive !== false,
+    });
 
     return NextResponse.json(combo, { status: 201 });
   } catch (error) {

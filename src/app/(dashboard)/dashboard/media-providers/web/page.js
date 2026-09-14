@@ -69,19 +69,23 @@ function ComboList({ combos }) {
   }
   return (
     <div className="flex flex-col gap-2">
-      {combos.map((combo) => (
-        <Link key={combo.id} href={`/dashboard/media-providers/combo/${combo.id}`}>
-          <Card padding="xs" className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
-              <code className="text-sm font-mono font-medium flex-1 truncate">{combo.name}</code>
-              {/* Provider icons preview */}
+      {combos.map((combo) => {
+        const isActive = combo.isActive !== false;
+        return (
+          <Link key={combo.id} href={`/dashboard/media-providers/combo/${combo.id}`}>
+            <Card padding="xs" className={`hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors cursor-pointer ${!isActive ? "opacity-50" : ""}`}>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
+                <code className={`text-sm font-mono font-medium flex-1 truncate ${!isActive ? "line-through text-text-muted" : ""}`}>{combo.name}</code>
+                {!isActive && <Badge variant="default" size="sm">Disabled</Badge>}
+                {/* Provider icons preview */}
               <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                 {combo.models.slice(0, 6).map((entry, i) => {
-                  const pid = typeof entry === "string" ? entry.split("/")[0] : "";
+                  const str = typeof entry === "string" ? entry : (entry?.model || "");
+                  const pid = str.split("/")[0];
                   const p = AI_PROVIDERS[pid];
                   return (
-                    <div key={`${entry}-${i}`} title={p?.name || entry} className="size-5 rounded flex items-center justify-center" style={{ backgroundColor: `${(p?.color ?? "#888")}15` }}>
+                    <div key={`${str}-${i}`} title={p?.name || str} className="size-5 rounded flex items-center justify-center" style={{ backgroundColor: `${(p?.color ?? "#888")}15` }}>
                       <ProviderIcon
                         src={`/providers/${pid}.png`}
                         alt={p?.name || pid}
@@ -102,9 +106,10 @@ function ComboList({ combos }) {
             </div>
           </Card>
         </Link>
-      ))}
-    </div>
-  );
+      );
+    })}
+  </div>
+);
 }
 
 function Section({ title, icon, kind, providers, connections, combos, onCreateCombo }) {

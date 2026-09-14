@@ -4,33 +4,67 @@ import { useState, useEffect } from "react";
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
+import Toggle from "./Toggle";
 import ModelSelectModal from "./ModelSelectModal";
 
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
+function normalizeEntry(m) {
+  if (typeof m === "string") return { model: m, enabled: true };
+  if (m && typeof m === "object") {
+    return { model: m.model || m.id || m.name || "", enabled: m.enabled !== false };
+  }
+  return { model: String(m || ""), enabled: true };
+}
+
 // Inline editable model item
-function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }) {
+function ModelItem({ index, item, isFirst, isLast, onToggle, onEdit, onMoveUp, onMoveDown, onRemove }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(model);
+  const [draft, setDraft] = useState(item.model);
   const commit = () => {
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== model) onEdit(trimmed);
-    else setDraft(model);
+    if (trimmed && trimmed !== item.model) onEdit(trimmed);
+    else setDraft(item.model);
     setEditing(false);
   };
   const handleKeyDown = (e) => {
     if (e.key === "Enter") commit();
-    if (e.key === "Escape") { setDraft(model); setEditing(false); }
+    if (e.key === "Escape") { setDraft(item.model); setEditing(false); }
   };
+  const isEnabled = item.enabled !== false;
+
   return (
-    <div className="group flex min-w-0 items-center gap-1.5 rounded-md bg-black/[0.02] px-2 py-1 transition-colors hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">
+    <div className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 transition-colors ${
+      isEnabled 
+        ? "bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]" 
+        : "bg-black/[0.01] hover:bg-black/[0.02] dark:bg-white/[0.01] opacity-60"
+    }`}>
       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
+      <button
+        type="button"
+        onClick={onToggle}
+        title={isEnabled ? "Enabled (click to disable)" : "Disabled (click to enable)"}
+        className={`p-0.5 rounded transition-all shrink-0 flex items-center justify-center ${
+          isEnabled 
+            ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10" 
+            : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+        }`}
+      >
+        <span className="material-symbols-outlined text-[16px]">
+          {isEnabled ? "check_circle" : "cancel"}
+        </span>
+      </button>
       {editing ? (
         <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown}
           className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20" />
       ) : (
-        <div className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-black/5 dark:hover:bg-white/5"
-          onClick={() => setEditing(true)} title="Click to edit">{model}</div>
+        <div className={`min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs ${
+          isEnabled ? "text-text-main hover:bg-black/5 dark:hover:bg-white/5" : "text-text-muted line-through hover:bg-black/5 dark:hover:bg-white/5"
+        }`}
+          onClick={() => setEditing(true)} title="Click to edit">
+          {item.model}
+          {!isEnabled && <span className="ml-1.5 text-[10px] font-sans no-underline inline-block text-amber-600 dark:text-amber-400 font-normal">(disabled)</span>}
+        </div>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
         <button onClick={onMoveUp} disabled={isFirst}
@@ -56,7 +90,8 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
     ? (forcePrefix && combo.name.startsWith(forcePrefix) ? combo.name.slice(forcePrefix.length) : combo.name)
     : "";
   const [name, setName] = useState(initialName);
-  const [models, setModels] = useState(combo?.models || []);
+  const [models, setModels] = useState(() => (combo?.models || []).map(normalizeEntry));
+  const [isActive, setIsActive] = useState(combo ? combo.isActive !== false : true);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
@@ -84,12 +119,16 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
   };
 
   const handleAddModel = (model) => {
-    if (!models.includes(model.value)) setModels([...models, model.value]);
+    if (!models.some((m) => m.model === model.value)) {
+      setModels([...models, { model: model.value, enabled: true }]);
+    }
   };
   const handleDeselectModel = (model) => {
-    setModels(models.filter((m) => m !== model.value));
+    setModels(models.filter((m) => m.model !== model.value));
   };
   const handleRemoveModel = (i) => setModels(models.filter((_, idx) => idx !== i));
+  const handleToggleModel = (i) => setModels(models.map((m, idx) => idx === i ? { ...m, enabled: !m.enabled } : m));
+  const handleEditModel = (i, val) => setModels(models.map((m, idx) => idx === i ? { ...m, model: val } : m));
   const handleMoveUp = (i) => {
     if (i === 0) return;
     const a = [...models]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; setModels(a);
@@ -102,7 +141,8 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
   const handleSave = async () => {
     if (!validateName(name)) return;
     setSaving(true);
-    await onSave({ name: forcePrefix + name.trim(), models });
+    const serializedModels = models.map((m) => (m.enabled === false ? { model: m.model, enabled: false } : m.model));
+    await onSave({ name: forcePrefix + name.trim(), models: serializedModels, isActive });
     setSaving(false);
   };
 
@@ -131,8 +171,24 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             </p>
           </div>
 
+          {/* Active status */}
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <label className="text-sm font-medium">Enabled</label>
+              <p className="text-[10px] text-text-muted">Enable or disable this combo for routing</p>
+            </div>
+            <Toggle checked={isActive} onChange={setIsActive} />
+          </div>
+
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Models</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium">Models</label>
+              {models.length > 0 && (
+                <span className="text-[11px] text-text-muted">
+                  {models.filter((m) => m.enabled !== false).length}/{models.length} active
+                </span>
+              )}
+            </div>
             {models.length === 0 ? (
               <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
                 <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
@@ -140,10 +196,11 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               </div>
             ) : (
               <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
-                {models.map((model, index) => (
-                  <ModelItem key={index} index={index} model={model}
+                {models.map((item, index) => (
+                  <ModelItem key={index} index={index} item={item}
                     isFirst={index === 0} isLast={index === models.length - 1}
-                    onEdit={(v) => { const a = [...models]; a[index] = v; setModels(a); }}
+                    onToggle={() => handleToggleModel(index)}
+                    onEdit={(v) => handleEditModel(index, v)}
                     onMoveUp={() => handleMoveUp(index)}
                     onMoveDown={() => handleMoveDown(index)}
                     onRemove={() => handleRemoveModel(index)} />
@@ -171,7 +228,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
           onSelect={handleAddModel} onDeselect={handleDeselectModel}
           activeProviders={activeProviders} modelAliases={modelAliases}
           title="Add Model to Combo" kindFilter={kindFilter}
-          addedModelValues={models} closeOnSelect={false} />
+          addedModelValues={models.map((m) => m.model)} closeOnSelect={false} />
       )}
     </>
   );

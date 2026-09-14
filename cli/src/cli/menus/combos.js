@@ -11,7 +11,8 @@ const { showMenuWithBack } = require("../utils/menuHelper");
 function formatModel(model) {
   if (typeof model === "string") return model;
   if (model && typeof model === "object") {
-    return model.id || model.name || `${model.provider}/${model.model}` || JSON.stringify(model);
+    const name = model.model || model.id || model.name || `${model.provider}/${model.model}` || JSON.stringify(model);
+    return model.enabled === false ? `${name} (disabled)` : name;
   }
   return String(model);
 }
@@ -26,11 +27,27 @@ async function showComboActions(combo, breadcrumb = []) {
     ? combo.models.map(formatModel).join(" → ") 
     : "";
   
+  const status = combo.isActive === false ? "Disabled" : "Active";
   await showMenuWithBack({
     title: `🔀 ${combo.name}`,
     breadcrumb: [...breadcrumb, combo.name],
-    headerContent: `Name: ${combo.name}\nModels: ${modelsChain}`,
+    headerContent: `Name: ${combo.name}\nStatus: ${status}\nModels: ${modelsChain}`,
     items: [
+      {
+        label: combo.isActive === false ? "🟢 Enable Combo" : "⏸️  Disable Combo",
+        action: async () => {
+          const next = combo.isActive === false;
+          const result = await api.updateCombo(combo.id, { isActive: next });
+          if (result.success) {
+            combo.isActive = next;
+            showStatus(`Combo ${next ? "enabled" : "disabled"}!`, "success");
+          } else {
+            showStatus(`Failed: ${result.error}`, "error");
+          }
+          await pause();
+          return true;
+        }
+      },
       {
         label: "Edit Combo",
         action: async () => {

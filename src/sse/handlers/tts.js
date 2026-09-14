@@ -47,6 +47,12 @@ export async function handleTts(request) {
   // Combo expansion: model may be a combo name → run fallback/round-robin across models
   const comboModels = await getComboModels(modelStr);
   if (comboModels) {
+    if (comboModels.disabled) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `Combo "${modelStr}" is disabled.`);
+    }
+    if (comboModels.length === 0) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `All models in combo "${modelStr}" are disabled.`);
+    }
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[modelStr]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;

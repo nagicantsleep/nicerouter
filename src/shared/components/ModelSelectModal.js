@@ -425,10 +425,11 @@ export default function ModelSelectModal({
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
     if (kindFilter || capFilter) return [];
-    if (!searchQuery.trim()) return combos;
+    const activeCombos = combos.filter((c) => c.isActive !== false);
+    if (!searchQuery.trim()) return activeCombos;
     const query = searchQuery.toLowerCase();
-    return combos.filter(c => c.name.toLowerCase().includes(query));
-  }, [combos, searchQuery, kindFilter]);
+    return activeCombos.filter(c => c.name.toLowerCase().includes(query));
+  }, [combos, searchQuery, kindFilter, capFilter]);
 
   // Sort models alphabetically, with added models floated to top
   const sortModels = (models) => {

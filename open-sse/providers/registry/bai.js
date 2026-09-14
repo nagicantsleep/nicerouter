@@ -1,0 +1,68 @@
+export default {
+  id: "bai",
+  priority: 266,
+  alias: "bai",
+  aliases: [
+    "b.ai",
+    "bai",
+  ],
+  uiAlias: "bai",
+  display: {
+    name: "B.AI",
+    icon: "bolt",
+    color: "#8B5CF6",
+    textIcon: "BAI",
+    website: "https://b.ai",
+    notice: {
+      apiKeyUrl: "https://b.ai",
+    },
+  },
+  category: "apikey",
+  features: {
+    usage: false,
+  },
+  thinkingConfig: {
+    options: [
+      "auto",
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ],
+    defaultMode: "auto",
+  },
+  transport: {
+    baseUrl: "https://api.b.ai/v1/chat/completions",
+    validateUrl: "https://api.b.ai/v1/models",
+  },
+  transports: [
+    {
+      format: "openai",
+      baseUrl: "https://api.b.ai/v1/chat/completions",
+      auth: { combined: true, header: "Authorization", scheme: "bearer" },
+    },
+    {
+      format: "claude",
+      baseUrl: "https://api.b.ai/v1/messages",
+      auth: { combined: true, header: "Authorization", scheme: "bearer", anthropicVersion: true },
+    },
+  ],
+  models: [
+    { id: "minimax-m3", name: "MiniMax M3" },
+    { id: "minimax-m2.7", name: "MiniMax M2.7" },
+    { id: "glm-5.1", name: "GLM 5.1" },
+    { id: "glm-5.2", name: "GLM 5.2" },
+    { id: "glm-5.3-flash", name: "GLM 5.3 Flash" },
+    { id: "gpt-5.4", name: "GPT 5.4" },
+    { id: "gpt-5.5", name: "GPT 5.5" },
+    { id: "claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
+    { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash" },
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" },
+    { id: "kimi-k3", name: "Kimi K3" },
+    { id: "qwen3.8-max", name: "Qwen 3.8 Max" },
+  ],
+};

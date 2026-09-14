@@ -1,8 +1,9 @@
+import fs from "fs";
 import { NextResponse } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
-import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer.js";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
@@ -106,9 +107,36 @@ function isLoopbackHostname(h) {
   return LOOPBACK_HOSTS.has(name);
 }
 
+function isDockerEnvironment() {
+  try {
+    return fs.existsSync("/.dockerenv");
+  } catch {
+    return false;
+  }
+}
+
+function isDockerBridgePeer(ip, request) {
+  if (!isDockerEnvironment()) return false;
+  if (!ip) return false;
+  let cleanIp = String(ip).trim();
+  if (cleanIp.startsWith("::ffff:")) cleanIp = cleanIp.slice(7);
+  // Match RFC 1918 private subnets commonly used by Docker bridge networks
+  const isPrivateDockerSubnet = (
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(cleanIp) ||
+    /^10\./.test(cleanIp) ||
+    /^192\.168\./.test(cleanIp)
+  );
+  if (!isPrivateDockerSubnet) return false;
+  // Host header must still be loopback (localhost or 127.0.0.1) to ensure request originated from host loopback
+  return isLoopbackHostname(request.headers.get("host"));
+}
+
 function isLoopbackPeer(request) {
   if (hasTrustedPeerHeaders(request)) {
-    return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
+    const realIp = request.headers.get("x-9r-real-ip");
+    if (isLoopbackHostname(realIp)) return true;
+    if (isDockerBridgePeer(realIp, request)) return true;
+    return false;
   }
   // Bare `next dev` forks its server, so the wrapper never loads and no peer address
   // reaches us. Host is spoofable, so this stays confined to development.

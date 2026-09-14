@@ -78,6 +78,8 @@ export async function getModelInfo(modelStr) {
   return getModelInfoCore(modelStr, getModelAliases);
 }
 
+import { getEnabledComboModels } from "open-sse/services/combo.js";
+
 /**
  * Check if model is a combo and get models list
  * @returns {Promise<string[]|null>} Array of models or null if not a combo
@@ -87,8 +89,14 @@ export async function getComboModels(modelStr) {
   if (modelStr.includes("/")) return null;
 
   const combo = await getComboByName(modelStr);
-  if (combo && combo.models && combo.models.length > 0) {
-    return combo.models;
+  if (combo) {
+    if (combo.isActive === false) {
+      return { disabled: true, combo };
+    }
+    if (combo.models && combo.models.length > 0) {
+      return getEnabledComboModels(combo.models);
+    }
+    return [];
   }
   return null;
 }
