@@ -3,7 +3,7 @@ import { needsTranslation } from "../../translator/index.js";
 import { fromOpenAIFinish } from "../../translator/concerns/finishReason.js";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
 import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
-import { createErrorResult } from "../../utils/error.js";
+import { createErrorResult, formatProviderError } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
 import { unwrapClineEnvelope } from "../../shared/clineEnvelope.js";
@@ -309,6 +309,37 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   // bare OpenAI body and usage tracking sees data.usage. No-op unless the
   // provider opts in via transport.quirks.clineEnvelope.
   responseBody = unwrapClineEnvelope(responseBody, provider);
+
+  // Disguised error check: provider returned 200 OK but payload is an error object
+  if (responseBody?.error || (responseBody?.type === "error" && responseBody?.error)) {
+    const errObj = responseBody.error;
+    const errMsg = typeof errObj === "string" ? errObj : (errObj?.message || JSON.stringify(errObj));
+    const errType = errObj?.type || responseBody?.type || "";
+    const lower = (errMsg + " " + errType).toLowerCase();
+    let status = 502;
+    if (
+      lower.includes("rate_limit") ||
+      lower.includes("rate limit") ||
+      lower.includes("usage limit") ||
+      lower.includes("quota") ||
+      lower.includes("limit exceeded") ||
+      lower.includes("daily usage limit") ||
+      lower.includes("usage_limit_reached")
+    ) {
+      status = 429;
+    } else if (lower.includes("capacity") || lower.includes("overloaded") || lower.includes("unavailable")) {
+      status = 503;
+    } else if (lower.includes("unauthorized") || lower.includes("invalid_api_key")) {
+      status = 401;
+    }
+    trackDone();
+    appendLog({ status: `FAILED ${status}` });
+    const formattedError = formatProviderError(new Error(errMsg), provider, model, status);
+    if (log?.errorLine) log.errorLine(reqTag, "✗", `ERROR ${status} · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${formattedError}`);
+    reqLogger.logError(new Error(errMsg), finalBody || translatedBody);
+    const resetsAtMs = (errObj?.resets_at || errObj?.reset_at) ? (errObj.resets_at || errObj.reset_at) * 1000 : null;
+    return createErrorResult(status, formattedError, resetsAtMs);
+  }
 
   reqLogger.logProviderResponse(providerResponse.status, providerResponse.statusText, providerResponse.headers, responseBody);
   if (onRequestSuccess) {

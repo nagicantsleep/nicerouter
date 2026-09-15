@@ -185,6 +185,14 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             {connection.globalPriority && (
               <span className="text-xs text-text-muted">Auto: {connection.globalPriority}</span>
             )}
+            {connection.providerSpecificData?.chatgptPlanType && (
+              <Badge
+                variant={String(connection.providerSpecificData.chatgptPlanType).toLowerCase() === "free" ? "default" : "primary"}
+                size="sm"
+              >
+                {String(connection.providerSpecificData.chatgptPlanType).toUpperCase()}
+              </Badge>
+            )}
             {getOneByOneLabel() && (
               <Badge variant={getOneByOneVariant()} size="sm">
                 {getOneByOneLabel()}

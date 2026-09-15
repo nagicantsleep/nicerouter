@@ -13,6 +13,8 @@ import { SSE_DONE } from "../utils/sseConstants.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import crypto from "crypto";
 
+export const COPILOT_AUTO_MODEL = "goldeneye-free-auto";
+
 export class GithubExecutor extends BaseExecutor {
   constructor() {
     super("github", PROVIDERS.github);
@@ -26,6 +28,7 @@ export class GithubExecutor extends BaseExecutor {
   // catalog (services/copilotModels.js) regularly exposes claude-* variants ahead
   // of the static registry (registry/github.js).
   isClaudeModel(model) {
+    if (model === "auto" || model === COPILOT_AUTO_MODEL) return false;
     return /claude/i.test(model || "");
   }
 
@@ -96,8 +99,9 @@ export class GithubExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
-    const transformed = { ...body };
-    if (this.requiresMaxCompletionTokens(model) && transformed.max_tokens !== undefined) {
+    const effectiveModel = model === "auto" ? COPILOT_AUTO_MODEL : model;
+    const transformed = { ...body, model: effectiveModel };
+    if (this.requiresMaxCompletionTokens(effectiveModel) && transformed.max_tokens !== undefined) {
       transformed.max_completion_tokens = transformed.max_tokens;
       delete transformed.max_tokens;
     }
@@ -106,7 +110,7 @@ export class GithubExecutor extends BaseExecutor {
       delete transformed.reasoning_effort;
     }
     // Config-driven strip of params unsupported by this provider/model
-    stripUnsupportedParams("github", model, transformed);
+    stripUnsupportedParams("github", effectiveModel, transformed);
     return transformed;
   }
 
@@ -117,25 +121,42 @@ export class GithubExecutor extends BaseExecutor {
   // returned a "not supported" error for an unrelated reason. Fixes #1062.
   supportsResponsesEndpoint(model) {
     const m = (model || "").toLowerCase();
-    return !(m.includes("gemini") || m.includes("claude"));
+    return !(m.includes("gemini") || m.includes("claude") || m === "auto" || m === COPILOT_AUTO_MODEL);
+  }
+
+  async executeWithChatCompletionsFallback(options) {
+    const fallbackOptions = {
+      ...options,
+      model: COPILOT_AUTO_MODEL,
+      body: this.sanitizeMessagesForChatCompletions({
+        ...options.body,
+        model: COPILOT_AUTO_MODEL
+      })
+    };
+    return super.execute({ ...fallbackOptions, proxyOptions: options.proxyOptions || null });
   }
 
   async execute(options) {
-    const { model, log } = options;
+    let { model, log } = options;
+
+    if (model === "auto") {
+      model = COPILOT_AUTO_MODEL;
+      options = { ...options, model, body: { ...options.body, model: COPILOT_AUTO_MODEL } };
+    }
 
     // Claude models: route to Copilot's Anthropic-native /v1/messages shim — the only
     // Copilot endpoint that surfaces prompt-cache token counts for Claude. Detected by
     // model NAME (not a registry field): Copilot's live model catalog regularly exposes
     // claude-* variants the static registry hasn't caught up with yet (see registry/github.js).
     if (this.isClaudeModel(model)) {
-      log?.debug("GITHUB", `Using /v1/messages route for ${model}`);
+      log?.debug?.("GITHUB", `Using /v1/messages route for ${model}`);
       return this.executeWithMessagesEndpoint(options);
     }
 
     // Only use /responses for models that are explicitly known to need it (e.g. gpt codex models)
     // and that the /responses endpoint actually serves (excludes Gemini/Claude, see #1062).
     if (this.knownCodexModels.has(model) && this.supportsResponsesEndpoint(model)) {
-      log?.debug("GITHUB", `Using cached /responses route for ${model}`);
+      log?.debug?.("GITHUB", `Using cached /responses route for ${model}`);
       return this.executeWithResponsesEndpoint(options);
     }
 
@@ -151,13 +172,44 @@ export class GithubExecutor extends BaseExecutor {
     // Only escalate to /responses for models that endpoint can actually serve.
     // Gemini/Claude would otherwise loop into a misleading "does not support
     // Responses API" 400 instead of surfacing the real /chat/completions error (#1062).
-    if (result.response.status === HTTP_STATUS.BAD_REQUEST && this.supportsResponsesEndpoint(model)) {
+    if (result.response.status === HTTP_STATUS.BAD_REQUEST) {
       const errorBody = await result.response.clone().text();
+      const isNotSupported =
+        errorBody.includes("The requested model is not supported") ||
+        errorBody.includes("model_not_supported");
+      const isRequiresResponses =
+        errorBody.includes("not accessible via the /chat/completions endpoint");
 
-      if (errorBody.includes("not accessible via the /chat/completions endpoint") || errorBody.includes("The requested model is not supported")) {
-        log?.warn("GITHUB", `Model ${model} requires /responses. Switching...`);
+      if (isRequiresResponses && this.supportsResponsesEndpoint(model)) {
+        log?.warn?.("GITHUB", `Model ${model} requires /responses. Switching...`);
         this.knownCodexModels.add(model);
         return this.executeWithResponsesEndpoint(options);
+      }
+
+      if (isNotSupported && this.supportsResponsesEndpoint(model)) {
+        log?.warn?.("GITHUB", `Model ${model} not accessible on /chat/completions. Trying /responses...`);
+        const respResult = await this.executeWithResponsesEndpoint(options);
+        if (respResult.response.ok) {
+          this.knownCodexModels.add(model);
+          return respResult;
+        }
+
+        const respErrorBody = await respResult.response.clone().text();
+        if (
+          model !== COPILOT_AUTO_MODEL &&
+          (respErrorBody.includes("The requested model is not supported") ||
+            respErrorBody.includes("model_not_supported") ||
+            respErrorBody.includes("unsupported_api_for_model"))
+        ) {
+          log?.warn?.("GITHUB", `Model ${model} not supported on /responses either (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
+          return this.executeWithChatCompletionsFallback(options);
+        }
+        return respResult;
+      }
+
+      if (isNotSupported && model !== COPILOT_AUTO_MODEL) {
+        log?.warn?.("GITHUB", `Model ${model} not supported on this Copilot account (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
+        return this.executeWithChatCompletionsFallback(options);
       }
     }
 
@@ -249,7 +301,8 @@ export class GithubExecutor extends BaseExecutor {
   // see the note in execute() above), so we translate to Anthropic-native ourselves.
   // This is what makes prepareClaudeRequest() (translator/formats/claude.js) inject
   // cache_control — /chat/completions never gets there, so it never sees cache tokens.
-  async executeWithMessagesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async executeWithMessagesEndpoint(options) {
+    const { model, body, stream, credentials, signal, log, proxyOptions = null } = options;
     const url = this.config.messagesUrl;
     const headers = this.buildHeaders(credentials, stream);
 
@@ -265,7 +318,7 @@ export class GithubExecutor extends BaseExecutor {
     const toolNameMap = transformedBody._toolNameMap;
     delete transformedBody._toolNameMap;
 
-    log?.debug("GITHUB", "Sending translated request to /v1/messages");
+    log?.debug?.("GITHUB", "Sending translated request to /v1/messages");
 
     const response = await proxyAwareFetch(url, {
       method: "POST",
@@ -275,6 +328,13 @@ export class GithubExecutor extends BaseExecutor {
     }, proxyOptions);
 
     if (!response.ok) {
+      if (response.status === HTTP_STATUS.BAD_REQUEST) {
+        const errorText = await response.clone().text();
+        if (errorText.includes("The requested model is not supported") || errorText.includes("model_not_supported")) {
+          log?.warn?.("GITHUB", `Model ${model} not supported on Copilot /v1/messages (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
+          return this.executeWithChatCompletionsFallback(options);
+        }
+      }
       return { response, url, headers, transformedBody };
     }
 

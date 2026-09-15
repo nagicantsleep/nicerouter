@@ -391,8 +391,17 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
       // For transient errors (503/502/504), wait for cooldown before falling through
       // so a briefly-overloaded provider gets a chance to recover rather than being
-      // skipped immediately (fixes: combo falls through on transient 503)
-      if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
+      // skipped immediately (fixes: combo falls through on transient 503).
+      // Never wait if the error is a quota exhaustion, rate limit, or locked account.
+      const errLower = errorText.toLowerCase();
+      const isQuotaOrAccountLock =
+        errLower.includes("limit") ||
+        errLower.includes("quota") ||
+        errLower.includes("unavailable") ||
+        errLower.includes("locked") ||
+        result.status === 429;
+
+      if (!isQuotaOrAccountLock && cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
           (result.status === 503 || result.status === 502 || result.status === 504)) {
         log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
         await new Promise(r => setTimeout(r, cooldownMs));

@@ -19,6 +19,62 @@ function githubMonthlyResetMs(status, errorText, provider) {
 }
 
 /**
+ * Detect daily or account-wide quota limits (e.g. AMD Cloud OneClick $1/day, billing hard limits, etc.)
+ */
+export function isAccountWideQuotaError(status, errorText) {
+  if (!errorText) return false;
+  const lower = (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase();
+  return (
+    lower.includes("daily usage limit") ||
+    lower.includes("daily limit") ||
+    lower.includes("per period for this") ||
+    lower.includes("maximum $") ||
+    lower.includes("billing_hard_limit_reached") ||
+    lower.includes("insufficient_quota") ||
+    lower.includes("credit balance is too low") ||
+    lower.includes("account has run out of credits") ||
+    lower.includes("account deactivated") ||
+    (lower.includes("quota exceeded") && (Number(status) === 429 || Number(status) === 403 || Number(status) === 402))
+  );
+}
+
+function accountWideDailyQuotaResetMs(status, errorText) {
+  if (!isAccountWideQuotaError(status, errorText)) return null;
+  const now = new Date();
+  const nextMidnightUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0, 0, 5
+  );
+  // Ensure at least 1 hour cooldown, up to next midnight UTC
+  const diff = nextMidnightUtc - now.getTime();
+  return Date.now() + Math.max(diff, 60 * 60 * 1000);
+}
+
+/**
+ * Check if a model requested on Codex is a Plus-only (expensive) model.
+ * Free accounts only support Luna, GPT-5.5, GPT-5.4-mini, Spark, etc.
+ * Plus accounts are required for Sol, Terra, Astra, and Image generation.
+ */
+export function isCodexPlusOnlyModel(model) {
+  if (!model) return false;
+  const m = String(model).toLowerCase();
+  return m.includes("sol") || m.includes("terra") || m.includes("astra") || m.includes("image");
+}
+
+/**
+ * Check if a Codex connection is a Free-tier account.
+ */
+export function isCodexFreeAccount(connection) {
+  const plan = String(connection?.providerSpecificData?.chatgptPlanType || "").toLowerCase().trim();
+  if (plan === "free") return true;
+  if (plan) return false;
+  const name = String(connection?.displayName || connection?.name || "").toLowerCase();
+  return name.includes("free");
+}
+
+/**
  * Get provider credentials from localDb
  * Filters out unavailable accounts and returns the selected account based on strategy
  * @param {string} provider - Provider name
@@ -81,10 +137,16 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     const isAntigravity = providerId === "antigravity";
     const antigravityQuotaCache = isAntigravity && model ? getAntigravityQuotaCache() : null;
 
-    // Filter out model-locked, excluded, and Antigravity quota-exhausted connections.
-    const availableConnections = connections.filter(c => {
+    // Codex tier-aware routing
+    const isCodex = providerId === "codex";
+    const isCodexPlusModel = isCodex && isCodexPlusOnlyModel(model);
+
+    // Filter out model-locked, excluded, Antigravity quota-exhausted, and Codex tier-incompatible connections.
+    let availableConnections = connections.filter(c => {
       if (excludeSet.has(c.id)) return false;
       if (isModelLockActive(c, model)) return false;
+      // Codex: Free accounts cannot serve Plus-only models (sol, terra, astra, image)
+      if (isCodexPlusModel && isCodexFreeAccount(c)) return false;
       // Antigravity: skip if live quota exhausted for this model
       if (isAntigravity && model && antigravityQuotaCache) {
         const quota = antigravityQuotaCache.get(c.id)?.[model];
@@ -97,13 +159,26 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       return true;
     });
 
+    // Codex: For Free-compatible models (e.g. Luna, GPT-5.5), prioritize Free accounts first.
+    // Plus accounts are preserved in standby and only used when all Free accounts are exhausted.
+    if (isCodex && !isCodexPlusModel) {
+      const freeAccounts = availableConnections.filter(isCodexFreeAccount);
+      if (freeAccounts.length > 0) {
+        log.debug("AUTH", `codex | Prioritizing ${freeAccounts.length} Free accounts for "${model || "default"}" before Plus accounts`);
+        availableConnections = freeAccounts;
+      } else {
+        log.debug("AUTH", `codex | All Free accounts exhausted/locked, falling back to ${availableConnections.length} Plus accounts for "${model || "default"}"`);
+      }
+    }
+
     log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
     connections.forEach(c => {
       const excluded = excludeSet.has(c.id);
       const locked = isModelLockActive(c, model);
-      if (excluded || locked) {
+      const tierSkipped = isCodexPlusModel && isCodexFreeAccount(c);
+      if (excluded || locked || tierSkipped) {
         const lockUntil = getEarliestModelLockUntil(c);
-        log.debug("AUTH", `  → ${c.id?.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
+        log.debug("AUTH", `  → ${c.id?.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""} ${tierSkipped ? `[free-tier, ${model} requires plus]` : ""}`);
       }
     });
 
@@ -244,12 +319,17 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
+  const dailyQuotaResetAtMs = accountWideDailyQuotaResetMs(status, errorText);
 
   // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
   let shouldFallback, cooldownMs, newBackoffLevel;
   if (githubResetAtMs) {
     shouldFallback = true;
     cooldownMs = githubResetAtMs - Date.now();
+    newBackoffLevel = 0;
+  } else if (dailyQuotaResetAtMs) {
+    shouldFallback = true;
+    cooldownMs = dailyQuotaResetAtMs - Date.now();
     newBackoffLevel = 0;
   } else if (resetsAtMs && resetsAtMs > Date.now()) {
     shouldFallback = true;
@@ -263,8 +343,9 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
+  const isAccountWide = !!githubResetAtMs || !!dailyQuotaResetAtMs;
   const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
-  const lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
+  const lockUpdate = buildModelLockUpdate(isAccountWide ? null : model, cooldownMs);
 
   await updateProviderConnection(connectionId, {
     ...lockUpdate,
