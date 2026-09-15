@@ -2,9 +2,14 @@
 
 import { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Card, Button, Modal } from "@/shared/components";
+import { Card, Button, Modal, LiveModelFetchModal } from "@/shared/components";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getProviderAlias } from "@/shared/constants/providers";
+
+const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
+  "openrouter", "poolside", "nvidia", "opencode", "opencode-go", "cloudflare-ai", "api-airforce",
+  "ramclouds", "seekai", "agentrouter", "vyceai", "kiraai", "orca", "bai", "qoder", "cline", "clinepass"
+]);
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 // ── ModelRow ───────────────────────────────────────────────────
@@ -116,6 +121,9 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   const [testingModelId, setTestingModelId] = useState(null);
   const [testError, setTestError] = useState("");
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
+  const [showLiveModelModal, setShowLiveModelModal] = useState(false);
+  const [fetchingLiveModels, setFetchingLiveModels] = useState(false);
+  const [fetchMessage, setFetchMessage] = useState({ type: "", text: "" });
 
   const providerAlias = providerAliasOverride || getProviderAlias(providerId);
   const effectiveType = kindFilter || "llm";
@@ -134,6 +142,12 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Opens selective Live Model Import Modal
+  const handleOpenLiveModal = () => {
+    setShowLiveModelModal(true);
+  };
+  const handleFetchLiveModels = handleOpenLiveModal;
 
   const handleSetAlias = async (modelId, alias) => {
     const fullModel = `${providerAlias}/${modelId}`;
@@ -218,8 +232,31 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   return (
     <>
       <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Models{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Models{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
+            {fetchMessage.text && (
+              <span className={`text-xs flex items-center gap-1 ${
+                fetchMessage.type === "success" ? "text-emerald-500" :
+                fetchMessage.type === "warning" ? "text-amber-500" : "text-text-muted"
+              }`}>
+                <span className="material-symbols-outlined text-sm">
+                  {fetchMessage.type === "success" ? "check_circle" : "info"}
+                </span>
+                {fetchMessage.text}
+              </span>
+            )}
+          </div>
+          {(ALLOWED_LIVE_FETCH_PROVIDERS.has(providerId) || providerId.includes("compatible")) && (
+            <button
+              onClick={() => setShowLiveModelModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 text-xs font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              title="Fetch live models with search, family filter, and selective import"
+            >
+              <span className="material-symbols-outlined text-sm">tune</span>
+              Fetch & Select Models
+            </button>
+          )}
         </div>
         {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
 
@@ -278,6 +315,22 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
           setShowAddCustomModel(false);
         }}
         onClose={() => setShowAddCustomModel(false)}
+      />
+
+      <LiveModelFetchModal
+        isOpen={showLiveModelModal}
+        onClose={() => setShowLiveModelModal(false)}
+        providerId={providerId}
+        providerAlias={providerAlias}
+        existingModelIds={new Set([
+          ...builtInModels.map((m) => m.id),
+          ...customModels
+            .filter((m) => m.providerAlias === providerAlias)
+            .map((m) => m.id),
+        ])}
+        onModelsAdded={async () => {
+          await fetchData();
+        }}
       />
     </>
   );

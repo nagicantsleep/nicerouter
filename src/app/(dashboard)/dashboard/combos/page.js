@@ -9,6 +9,7 @@ import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModa
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import ComboTestModal from "./ComboTestModal";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -54,6 +55,7 @@ export default function CombosPage() {
   const [capacityAdapter, setCapacityAdapter] = useState(EMPTY_CAPACITY_ADAPTER);
   const { getCaps } = useModelCaps();
   const [confirmState, setConfirmState] = useState(null);
+  const [testingCombo, setTestingCombo] = useState(null);
   const { copied, copy } = useCopyToClipboard();
 
   useEffect(() => {
@@ -251,6 +253,7 @@ export default function CombosPage() {
               activeProviders={activeProviders}
               copied={copied}
               onCopy={copy}
+              onTest={() => setTestingCombo(combo)}
               onEdit={() => setEditingCombo(combo)}
               onDelete={() => handleDelete(combo.id)}
               onToggleModel={handleToggleComboModel}
@@ -278,6 +281,17 @@ export default function CombosPage() {
           onClose={() => setShowCreateModal(false)}
           onSave={handleCreate}
           activeProviders={activeProviders}
+        />
+      )}
+
+      {/* Combo Fallback Test Modal */}
+      {testingCombo && (
+        <ComboTestModal
+          key={`test-${testingCombo.id}`}
+          isOpen={!!testingCombo}
+          combo={testingCombo}
+          strategy={comboStrategies[testingCombo.name] || {}}
+          onClose={() => setTestingCombo(null)}
         />
       )}
 
@@ -311,7 +325,7 @@ const STRATEGY_OPTIONS = [
   { value: "fusion", label: "Fusion — panel + judge" },
 ];
 
-function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, onToggleModel, onToggleActive, strategy = {}, onSetStrategy }) {
+function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onTest, onEdit, onDelete, onToggleModel, onToggleActive, strategy = {}, onSetStrategy }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
@@ -426,7 +440,15 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               onChange={(checked) => onToggleActive?.(combo, checked)}
               title={isActive ? "Disable combo" : "Enable combo"}
             />
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-4 gap-1">
+              <button
+                onClick={onTest}
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-emerald-500 dark:hover:bg-white/5"
+                title="Test combo fallback routing"
+              >
+                <span className="material-symbols-outlined text-[18px] text-emerald-500">science</span>
+                <span className="text-[10px] leading-tight">Test</span>
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
                 className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"

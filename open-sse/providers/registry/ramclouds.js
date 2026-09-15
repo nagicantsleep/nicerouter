@@ -36,6 +36,7 @@ export default {
     headers: {
       "User-Agent": "Cline/3.0.0",
     },
+    forceStream: true,
   },
   transports: [
     {
@@ -43,12 +44,14 @@ export default {
       baseUrl: "https://ramclouds.me/v1/chat/completions",
       headers: { "User-Agent": "Cline/3.0.0" },
       auth: { combined: true, header: "Authorization", scheme: "bearer" },
+      forceStream: true,
     },
     {
       format: "claude",
       baseUrl: "https://ramclouds.me/v1/messages",
       headers: { "User-Agent": "Cline/3.0.0" },
       auth: { combined: true, header: "Authorization", scheme: "bearer", anthropicVersion: true },
+      forceStream: true,
     },
   ],
   models: [

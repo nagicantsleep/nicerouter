@@ -85,6 +85,8 @@ export default function ConsoleLogClient() {
 
   const logRef = useRef(null);
   const clearMenuRef = useRef(null);
+  const isAutoScrollingRef = useRef(false);
+  const prevScrollHeightRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -163,10 +165,41 @@ export default function ConsoleLogClient() {
     return () => es.close();
   }, []);
 
-  // Auto-scroll to bottom on new logs when enabled
+  // Handle user scrolling: automatically pause auto-scroll when user scrolls up,
+  // and resume auto-scroll when user scrolls back to the very bottom.
+  const handleScroll = () => {
+    if (!logRef.current || isAutoScrollingRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = logRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isAtBottom = distanceFromBottom <= 40;
+
+    if (!isAtBottom && autoScroll) {
+      setAutoScroll(false);
+    } else if (isAtBottom && !autoScroll) {
+      setAutoScroll(true);
+    }
+  };
+
+  // Auto-scroll to bottom on new logs when enabled; strictly freeze position when paused
   useEffect(() => {
-    if (!autoScroll || !logRef.current) return;
-    logRef.current.scrollTop = logRef.current.scrollHeight;
+    if (!logRef.current) return;
+    if (autoScroll) {
+      isAutoScrollingRef.current = true;
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+      requestAnimationFrame(() => {
+        isAutoScrollingRef.current = false;
+      });
+    } else {
+      // If NOT in auto-scroll mode, ensure scrollTop never jumps down!
+      // If items were trimmed from the top, adjust scrollTop so the view stays pinned
+      const currentScrollHeight = logRef.current.scrollHeight;
+      const prevScrollHeight = prevScrollHeightRef.current;
+      if (prevScrollHeight > 0 && currentScrollHeight < prevScrollHeight) {
+        const diff = prevScrollHeight - currentScrollHeight;
+        logRef.current.scrollTop = Math.max(0, logRef.current.scrollTop - diff);
+      }
+    }
+    prevScrollHeightRef.current = logRef.current.scrollHeight;
   }, [logs, autoScroll]);
 
   // Counts for tabs
@@ -337,7 +370,17 @@ export default function ConsoleLogClient() {
               size="sm"
               variant={autoScroll ? "secondary" : "outline"}
               icon={autoScroll ? "vertical_align_bottom" : "pause"}
-              onClick={() => setAutoScroll(!autoScroll)}
+              onClick={() => {
+                const next = !autoScroll;
+                setAutoScroll(next);
+                if (next && logRef.current) {
+                  isAutoScrollingRef.current = true;
+                  logRef.current.scrollTop = logRef.current.scrollHeight;
+                  requestAnimationFrame(() => {
+                    isAutoScrollingRef.current = false;
+                  });
+                }
+              }}
               title={autoScroll ? "Auto-scroll ON (click to pause)" : "Auto-scroll PAUSED (click to resume)"}
             >
               <span className="hidden sm:inline">{autoScroll ? "Auto-scroll" : "Paused"}</span>
@@ -431,10 +474,13 @@ export default function ConsoleLogClient() {
         </div>
 
         {/* Log Viewer Terminal */}
-        <div
-          ref={logRef}
-          className="bg-black text-xs font-mono h-[calc(100vh-250px)] overflow-y-auto p-3 space-y-1 select-text"
-        >
+        <div className="relative">
+          <div
+            ref={logRef}
+            onScroll={handleScroll}
+            style={{ overflowAnchor: "none" }}
+            className="bg-black text-xs font-mono h-[calc(100vh-250px)] overflow-y-auto p-3 space-y-1 select-text"
+          >
           {filteredLogs.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-text-muted gap-2 py-16">
               <span className="material-symbols-outlined text-[36px] opacity-40">terminal</span>
@@ -561,6 +607,31 @@ export default function ConsoleLogClient() {
                 </div>
               );
             })
+          )}
+          </div>
+
+          {/* Floating Jump to Latest Button when Auto-scroll is Paused */}
+          {!autoScroll && (
+            <button
+              onClick={() => {
+                setAutoScroll(true);
+                if (logRef.current) {
+                  isAutoScrollingRef.current = true;
+                  logRef.current.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
+                  setTimeout(() => {
+                    isAutoScrollingRef.current = false;
+                  }, 350);
+                }
+              }}
+              className="absolute bottom-4 right-6 px-3 py-1.5 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 shadow-2xl text-xs font-medium flex items-center gap-1.5 transition-all duration-200 cursor-pointer z-20 backdrop-blur-sm group hover:border-cyan-500/50 hover:text-white"
+              title="Click to resume auto-scroll and jump to latest logs"
+            >
+              <span className="material-symbols-outlined text-[16px] text-cyan-400 group-hover:translate-y-0.5 transition-transform">
+                arrow_downward
+              </span>
+              <span>Latest Logs</span>
+              <span className="size-2 rounded-full bg-cyan-400 animate-pulse" />
+            </button>
           )}
         </div>
       </Card>

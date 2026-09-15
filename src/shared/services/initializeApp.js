@@ -118,6 +118,11 @@ async function runHeavyStartup() {
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+
+  // Periodic free-tier & dynamic model discovery (every 6h)
+  import("@/shared/services/autoFetchModels.js")
+    .then(({ startAutoFetchModels }) => startAutoFetchModels())
+    .catch((e) => console.log("[AutoFetchModels] scheduler start failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings) {
