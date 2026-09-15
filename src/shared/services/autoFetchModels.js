@@ -16,7 +16,7 @@ export const PRUNE_TARGET_PROVIDERS = [
   { id: "poolside", freeOnly: true },
   { id: "nvidia", freeOnly: false },
   { id: "opencode", freeOnly: true },
-  { id: "opencode-go", freeOnly: true },
+  { id: "opencode-go", freeOnly: false },
   { id: "cloudflare-ai", freeOnly: false },
   { id: "api-airforce", freeOnly: true },
   // Integrated dynamic API key providers
@@ -27,6 +27,7 @@ export const PRUNE_TARGET_PROVIDERS = [
   { id: "kiraai", freeOnly: false },
   { id: "orca", freeOnly: false },
   { id: "bai", freeOnly: false },
+  { id: "atria", freeOnly: false },
   { id: "qoder", freeOnly: false },
   { id: "cline", freeOnly: false },
   { id: "clinepass", freeOnly: false },

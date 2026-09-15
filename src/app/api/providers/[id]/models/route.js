@@ -345,6 +345,7 @@ const PROVIDER_MODELS_CONFIG = {
   kiraai: createOpenAIModelsConfig("https://kiraai.vn/api/v1/models"),
   orca: createOpenAIModelsConfig("https://api.orcarouter.ai/v1/models"),
   bai: createOpenAIModelsConfig("https://api.b.ai/v1/models"),
+  atria: createOpenAIModelsConfig("https://api.atria-asi.ai/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),
@@ -362,7 +363,60 @@ const PROVIDER_MODELS_CONFIG = {
   // ollama-local: url resolved dynamically below via providerSpecificData.baseUrl
   nanobanana: createOpenAIModelsConfig("https://api.nanobananaapi.ai/v1/models"),
   chutes: createOpenAIModelsConfig("https://llm.chutes.ai/v1/models"),
-  nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
+  nvidia: {
+    url: "https://integrate.api.nvidia.com/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      return raw.map((m) => ({
+        id: m.id || m.name,
+        name: m.name || m.id,
+        isFree: true,
+      }));
+    },
+  },
+  opencode: {
+    url: "https://opencode.ai/zen/v1/models",
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Cline/3.0.0",
+      "x-opencode-client": "desktop",
+    },
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      const KNOWN_FREE = new Set(["big-pickle"]);
+      const DEAD_MODELS = new Set(["deepseek-v4-flash-free"]);
+      return raw
+        .filter((m) => {
+          const id = m.id || m.name;
+          return (id.endsWith("-free") || KNOWN_FREE.has(id)) && !DEAD_MODELS.has(id);
+        })
+        .map((m) => ({
+          id: m.id || m.name,
+          name: m.name || m.id,
+          isFree: true,
+        }));
+    },
+  },
+  "opencode-go": {
+    url: "https://opencode.ai/zen/go/v1/models",
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Cline/3.0.0",
+      "x-opencode-client": "desktop",
+    },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: parseOpenAIStyleModels,
+  },
   assemblyai: createOpenAIModelsConfig("https://api.assemblyai.com/v1/models"),
   "vercel-ai-gateway": createOpenAIModelsConfig("https://ai-gateway.vercel.sh/v1/models"),
   kimchi: {

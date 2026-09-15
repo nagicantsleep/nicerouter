@@ -52,7 +52,7 @@ export default function LiveModelFetchModal({
       setLoading(true);
       setError("");
       try {
-        const isFreeTier = ["openrouter", "poolside", "nvidia", "cloudflare-ai", "api-airforce", "opencode", "opencode-go"].includes(providerId);
+        const isFreeTier = ["openrouter", "poolside", "nvidia", "cloudflare-ai", "api-airforce", "opencode"].includes(providerId);
         const targetId = targetConnectionId || providerId;
         const res = await fetch(`/api/providers/${targetId}/models${isFreeTier ? "?freeOnly=true" : ""}`);
         const data = await res.json();

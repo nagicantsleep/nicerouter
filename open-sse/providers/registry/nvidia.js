@@ -42,4 +42,6 @@ export default {
     format: "nvidia-tts",
   },
   embeddingConfig: { baseUrl: "https://integrate.api.nvidia.com/v1/embeddings", authType: "apikey", authHeader: "bearer" },
+  modelsFetcher: { url: "https://integrate.api.nvidia.com/v1/models", type: "openai" },
+  passthroughModels: true,
 };

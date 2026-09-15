@@ -8,7 +8,7 @@ import { getProviderAlias } from "@/shared/constants/providers";
 
 const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
   "openrouter", "poolside", "nvidia", "opencode", "opencode-go", "cloudflare-ai", "api-airforce",
-  "ramclouds", "seekai", "agentrouter", "vyceai", "kiraai", "orca", "bai", "qoder", "cline", "clinepass"
+  "ramclouds", "seekai", "agentrouter", "vyceai", "kiraai", "orca", "bai", "atria", "qoder", "cline", "clinepass"
 ]);
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 

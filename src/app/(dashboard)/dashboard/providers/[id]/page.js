@@ -25,6 +25,7 @@ const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
   "kiraai",
   "orca",
   "bai",
+  "atria",
   "qoder",
   "cline",
   "clinepass",

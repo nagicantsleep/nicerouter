@@ -131,6 +131,7 @@ import pVyceAi from "./vyceai.js";
 import pKiraAi from "./kiraai.js";
 import pOrca from "./orca.js";
 import pBai from "./bai.js";
+import pAtria from "./atria.js";
 export default [
   p0,
   p1,
@@ -262,4 +263,5 @@ export default [
   pKiraAi,
   pOrca,
   pBai,
+  pAtria,
 ];
