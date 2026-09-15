@@ -333,5 +333,41 @@ describe("Combo Test & Fallback Trace", () => {
         nextAction: "served",
       });
     });
+
+    it("streams events when stream: true is requested", async () => {
+      const mockCombo = {
+        id: "combo-stream",
+        name: "Stream Combo",
+        models: ["vyce/deepseek-v4-flash"],
+      };
+
+      vi.mocked(localDb.getComboById).mockResolvedValueOnce(mockCombo);
+      vi.mocked(localDb.getSettings).mockResolvedValueOnce({});
+      vi.mocked(localDb.getApiKeys).mockResolvedValueOnce([{ key: "sk-test", isActive: true }]);
+      vi.mocked(localDb.getProviderConnections).mockImplementation(async () => [
+        { id: "conn-vyce-1", name: "Vyce", isActive: true },
+      ]);
+
+      global.fetch = vi.fn().mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ choices: [{ message: { content: "Streaming Hello" } }] }),
+      }));
+
+      const req = new Request("http://localhost/api/combos/combo-stream/test", {
+        method: "POST",
+        body: JSON.stringify({ prompt: "hi", stream: true }),
+      });
+
+      const res = await POST(req, { params: Promise.resolve({ id: "combo-stream" }) });
+      expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+      const text = await res.text();
+      expect(text).toContain('"type":"init"');
+      expect(text).toContain('"type":"step_start"');
+      expect(text).toContain('"type":"step_complete"');
+      expect(text).toContain('"type":"complete"');
+      expect(text).toContain("Streaming Hello");
+    });
   });
 });

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
 import Input from "./Input";
-import { useTranslation } from "@/shared/hooks/useTranslation";
+import { translate } from "@/i18n/runtime";
 
 const MODEL_FAMILIES = [
   { id: "all", label: "All", regex: null },
@@ -28,7 +28,6 @@ export default function LiveModelFetchModal({
   existingModelIds = new Set(),
   onModelsAdded,
 }) {
-  const { t: translate } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [liveModels, setLiveModels] = useState([]);
@@ -97,7 +96,7 @@ export default function LiveModelFetchModal({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, providerId, targetConnectionId, translate]);
+  }, [isOpen, providerId, targetConnectionId]);
 
   // Filter models by family and search query
   const filteredModels = useMemo(() => {

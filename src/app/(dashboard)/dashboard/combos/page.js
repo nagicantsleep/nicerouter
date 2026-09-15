@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -440,18 +441,26 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onTes
               onChange={(checked) => onToggleActive?.(combo, checked)}
               title={isActive ? "Disable combo" : "Enable combo"}
             />
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               <button
                 onClick={onTest}
-                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-emerald-500 dark:hover:bg-white/5"
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-emerald-500 dark:hover:bg-white/5 cursor-pointer"
                 title="Test combo fallback routing"
               >
                 <span className="material-symbols-outlined text-[18px] text-emerald-500">science</span>
                 <span className="text-[10px] leading-tight">Test</span>
               </button>
+              <Link
+                href={`/dashboard/console-log?category=combos&combo=${encodeURIComponent(combo.name)}`}
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-purple-400 dark:hover:bg-white/5 cursor-pointer"
+                title="View failover and execution logs for this combo"
+              >
+                <span className="material-symbols-outlined text-[18px] text-purple-400">history</span>
+                <span className="text-[10px] leading-tight">Logs</span>
+              </Link>
               <button
                 onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 cursor-pointer"
                 title="Copy combo name"
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -461,7 +470,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onTes
               </button>
               <button
                 onClick={onEdit}
-                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+                className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5 cursor-pointer"
                 title="Edit"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -469,7 +478,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onTes
               </button>
               <button
                 onClick={onDelete}
-                className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
+                className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10 cursor-pointer"
                 title="Delete"
               >
                 <span className="material-symbols-outlined text-[18px]">delete</span>

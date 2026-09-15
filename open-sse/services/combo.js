@@ -347,16 +347,24 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let earliestRetryAfter = null;
   let lastStatus = null;
 
+  const cName = comboName || "combo";
+  const cPrefix = `[${cName}] `;
+
   for (let i = 0; i < rotatedModels.length; i++) {
     const modelStr = rotatedModels[i];
-    log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
+    const nextModel = i < rotatedModels.length - 1 ? rotatedModels[i + 1] : null;
+    log.info("COMBO", `${cPrefix}Step ${i + 1}/${rotatedModels.length}: Trying model ${modelStr}`);
 
     try {
       const result = await handleSingleModel(body, modelStr);
       
       // Success (2xx) - return response
       if (result.ok) {
-        log.info("COMBO", `Model ${modelStr} succeeded`);
+        if (i > 0) {
+          log.info("COMBO", `${cPrefix}✅ Fallback model ${modelStr} served request successfully (Step ${i + 1}/${rotatedModels.length})`);
+        } else {
+          log.info("COMBO", `${cPrefix}Model ${modelStr} succeeded`);
+        }
         return result;
       }
 
@@ -385,7 +393,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
 
       if (!shouldFallback) {
-        log.warn("COMBO", `Model ${modelStr} failed (no fallback)`, { status: result.status });
+        log.warn("COMBO", `${cPrefix}Model ${modelStr} failed (no fallback)`, { status: result.status, error: errorText });
         return result;
       }
 
@@ -403,19 +411,33 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
       if (!isQuotaOrAccountLock && cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
           (result.status === 503 || result.status === 502 || result.status === 504)) {
-        log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
+        log.info("COMBO", `${cPrefix}Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
         await new Promise(r => setTimeout(r, cooldownMs));
       }
 
       // Fallback to next model
       lastError = errorText || String(result.status);
       if (!lastStatus) lastStatus = result.status;
-      log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
+      const fallbackTarget = nextModel ? `→ falling back to ${nextModel}` : "(no more models)";
+      const cleanReason = errorText ? `: ${errorText.slice(0, 200)}` : "";
+      log.warn("COMBO", `${cPrefix}⚠️ Model ${modelStr} failed (HTTP ${result.status}${cleanReason}) ${fallbackTarget}`, {
+        combo: cName,
+        failedModel: modelStr,
+        nextModel,
+        status: result.status,
+        error: errorText,
+      });
     } catch (error) {
       // Catch unexpected exceptions to ensure fallback continues
       lastError = error.message || String(error);
       if (!lastStatus) lastStatus = 500;
-      log.warn("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
+      const fallbackTarget = nextModel ? `→ falling back to ${nextModel}` : "(no more models)";
+      log.warn("COMBO", `${cPrefix}⚠️ Model ${modelStr} threw error: ${lastError} ${fallbackTarget}`, {
+        combo: cName,
+        failedModel: modelStr,
+        nextModel,
+        error: lastError,
+      });
     }
   }
 
@@ -429,11 +451,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
   if (earliestRetryAfter) {
     const retryHuman = formatRetryAfter(earliestRetryAfter);
-    log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
+    log.error("COMBO", `${cPrefix}❌ All models in combo failed! Tried [${rotatedModels.join(", ")}] | ${msg} (${retryHuman})`);
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
   }
 
-  log.warn("COMBO", `All models failed | ${msg}`);
+  log.error("COMBO", `${cPrefix}❌ All models in combo failed! Tried [${rotatedModels.join(", ")}] | ${msg}`);
   return new Response(
     JSON.stringify({ error: { message: msg } }),
     { status, headers: { "Content-Type": "application/json" } }
