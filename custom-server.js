@@ -1,3 +1,4 @@
+process.env.TZ = process.env.TZ || "Asia/Tokyo";
 const http = require("http");
 const path = require("path");
 const fs = require("fs");

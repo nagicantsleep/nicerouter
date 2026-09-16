@@ -132,6 +132,9 @@ import pKiraAi from "./kiraai.js";
 import pOrca from "./orca.js";
 import pBai from "./bai.js";
 import pAtria from "./atria.js";
+import pModelScope from "./modelscope.js";
+import pOneRouter from "./onerouter.js";
+import pWusRouter from "./wusrouter.js";
 export default [
   p0,
   p1,
@@ -264,4 +267,7 @@ export default [
   pOrca,
   pBai,
   pAtria,
+  pModelScope,
+  pOneRouter,
+  pWusRouter,
 ];

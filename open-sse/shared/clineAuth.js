@@ -21,17 +21,19 @@ export function getClineAuthorizationHeader(token) {
   return accessToken ? `Bearer ${accessToken}` : "";
 }
 
+export const CLINE_EXTENSION_VERSION = "4.1.18";
+
 export function buildClineHeaders(token, extraHeaders = {}) {
   const authorization = getClineAuthorizationHeader(token);
   const headers = {
     "HTTP-Referer": "https://cline.bot",
     "X-Title": "Cline",
-    "User-Agent": `9Router/${APP_VERSION}`,
-    "X-PLATFORM": process.platform || "unknown",
-    "X-PLATFORM-VERSION": process.version || "unknown",
-    "X-CLIENT-TYPE": "9router",
-    "X-CLIENT-VERSION": APP_VERSION,
-    "X-CORE-VERSION": APP_VERSION,
+    "User-Agent": `Cline/${CLINE_EXTENSION_VERSION}`,
+    "X-PLATFORM": "Visual Studio Code",
+    "X-PLATFORM-VERSION": "1.108.0",
+    "X-CLIENT-TYPE": "VSCode Extension",
+    "X-CLIENT-VERSION": CLINE_EXTENSION_VERSION,
+    "X-CORE-VERSION": CLINE_EXTENSION_VERSION,
     "X-IS-MULTIROOT": "false",
     ...extraHeaders,
   };

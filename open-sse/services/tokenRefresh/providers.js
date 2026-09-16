@@ -3,6 +3,7 @@ import { OAUTH_ENDPOINTS, GITHUB_COPILOT, buildKimiHeaders } from "../../config/
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { dedupRefresh } from "./dedup.js";
 import { buildExternalIdpRefreshParams } from "../../../src/lib/oauth/kiroExternalIdp.js";
+import { getClineAccessToken } from "../../shared/clineAuth.js";
 
 let _xaiServiceSingleton = null;
 export async function refreshXaiToken(refreshToken, log) {
@@ -183,7 +184,7 @@ export async function refreshClineToken(refreshToken, log) {
         : (tokens.expiresIn || tokens.expires_in || 3600);
 
       return {
-        accessToken: tokens.accessToken,
+        accessToken: getClineAccessToken(tokens.accessToken),
         refreshToken: tokens.refreshToken || refreshToken,
         expiresIn,
       };

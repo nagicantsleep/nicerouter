@@ -1,0 +1,65 @@
+export default {
+  id: "onerouter",
+  priority: 269,
+  alias: "onerouter",
+  aliases: [
+    "onerouter",
+    "onerouter-pro",
+    "onerouter.pro",
+    "infron",
+    "infron-ai",
+    "infron.ai",
+  ],
+  uiAlias: "onerouter",
+  display: {
+    name: "OneRouter",
+    icon: "router",
+    color: "#0284C7",
+    textIcon: "1R",
+    website: "https://infron.ai",
+    notice: {
+      apiKeyUrl: "https://infron.ai/dashboard/apikeys",
+    },
+  },
+  category: "apikey",
+  features: {
+    usage: true,
+  },
+  thinkingConfig: {
+    options: [
+      "auto",
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ],
+    defaultMode: "auto",
+  },
+  transport: {
+    baseUrl: "https://llm.onerouter.pro/v1/chat/completions",
+    validateUrl: "https://llm.onerouter.pro/v1/models",
+  },
+  transports: [
+    {
+      format: "openai",
+      baseUrl: "https://llm.onerouter.pro/v1/chat/completions",
+      auth: { combined: true, header: "Authorization", scheme: "bearer" },
+    },
+  ],
+  models: [
+    { id: "deepseek/deepseek-v4-flash:free", name: "DeepSeek V4 Flash (Free)", isFree: true },
+    { id: "nvidia/nemotron-3.5-lightning-30b-a3b:free", name: "Nemotron 3.5 Lightning (Free)", isFree: true },
+    { id: "qwen/qwen3.8-27b:free", name: "Qwen 3.8 27B (Free)", isFree: true },
+    { id: "deepseek/deepseek-v4-flash-0731:free", name: "DeepSeek V4 Flash 0731 (Free)", isFree: true },
+    { id: "motif/motif-3", name: "Motif 3 (Free)", isFree: true },
+    { id: "deepseek/deepseek-chat", name: "DeepSeek Chat" },
+    { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
+    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+  ],
+  modelsFetcher: { url: "https://llm.onerouter.pro/v1/models", type: "openai" },
+  passthroughModels: true,
+};

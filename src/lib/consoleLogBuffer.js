@@ -83,7 +83,7 @@ function flushDiskQueue() {
 
     const payload = entriesToWrite.map((e) => {
       const tagStr = e.tag ? ` [${e.tag}]` : "";
-      let text = `[${e.isoTime}] [${e.level.toUpperCase()}]${tagStr} ${e.message}\n`;
+      let text = `[${e.timestamp || e.isoTime}] [${e.level.toUpperCase()}]${tagStr} ${e.message}\n`;
       if (e.stack) {
         text += `  Stack: ${e.stack}\n`;
       }
@@ -161,7 +161,10 @@ function extractErrorDetails(err) {
 
 function buildLogEntry(originalLevel, args) {
   const now = new Date();
-  const timeStr = now.toLocaleTimeString("en-US", { hour12: false });
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour12: false,
+    timeZone: process.env.TZ || "Asia/Tokyo",
+  });
   const isoTime = now.toISOString();
 
   // Inspect arguments safely using node:util

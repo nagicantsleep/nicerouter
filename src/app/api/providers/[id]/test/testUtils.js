@@ -18,7 +18,7 @@ import {
   KILOCODE_CONFIG,
   KIMCHI_CONFIG,
 } from "@/lib/oauth/constants/oauth";
-import { buildClineHeaders } from "@/shared/utils/clineAuth";
+import { buildClineHeaders, getClineAccessToken } from "@/shared/utils/clineAuth";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -301,7 +301,7 @@ async function refreshOAuthToken(connection) {
         ? Math.max(1, Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000))
         : 3600;
       return {
-        accessToken: data?.accessToken,
+        accessToken: getClineAccessToken(data?.accessToken),
         expiresIn,
         refreshToken: data?.refreshToken || refreshToken,
       };
@@ -815,6 +815,42 @@ case "llm7": {
           },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
+      }
+      case "bai": {
+        const res = await fetchWithConnectionProxy("https://api.b.ai/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "orca": {
+        const res = await fetchWithConnectionProxy("https://api.orcarouter.ai/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "atria": {
+        const res = await fetchWithConnectionProxy("https://api.atria-asi.ai/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "modelscope": {
+        const res = await fetchWithConnectionProxy("https://api-inference.modelscope.ai/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "onerouter": {
+        const res = await fetchWithConnectionProxy("https://llm.onerouter.pro/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "wusrouter": {
+        const res = await fetchWithConnectionProxy("https://api.wusrouter.com/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
       default:
         return { valid: false, error: "Provider test not supported" };

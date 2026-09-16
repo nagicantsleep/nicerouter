@@ -1,4 +1,5 @@
 import { CLINE_CONFIG } from "../constants/oauth.js";
+import { getClineAccessToken } from "../../../../open-sse/shared/clineAuth.js";
 
 const cline = {
   config: CLINE_CONFIG,
@@ -49,7 +50,7 @@ const cline = {
     }
   },
   mapTokens: (tokens) => ({
-    accessToken: tokens.access_token,
+    accessToken: getClineAccessToken(tokens.access_token),
     refreshToken: tokens.refresh_token,
     expiresIn: tokens.expires_at
       ? Math.floor((new Date(tokens.expires_at).getTime() - Date.now()) / 1000)

@@ -132,6 +132,22 @@ const LIVE_MODEL_RESOLVERS = {
         })),
     };
   },
+  wusrouter: async (conn) => {
+    if (!conn?.apiKey) return null;
+    try {
+      const res = await fetch("https://api.wusrouter.com/v1/models", {
+        headers: { Authorization: `Bearer ${conn.apiKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data?.data || data?.models || []);
+      if (!raw.length) return null;
+      return { models: raw.map((m) => ({ id: m.id || m, name: m.name || m.id || m })) };
+    } catch {
+      return null;
+    }
+  },
 };
 
 const parseOpenAIStyleModels = (data) => {

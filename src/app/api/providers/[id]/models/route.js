@@ -346,6 +346,9 @@ const PROVIDER_MODELS_CONFIG = {
   orca: createOpenAIModelsConfig("https://api.orcarouter.ai/v1/models"),
   bai: createOpenAIModelsConfig("https://api.b.ai/v1/models"),
   atria: createOpenAIModelsConfig("https://api.atria-asi.ai/v1/models"),
+  modelscope: createOpenAIModelsConfig("https://api-inference.modelscope.ai/v1/models"),
+  onerouter: createOpenAIModelsConfig("https://llm.onerouter.pro/v1/models"),
+  wusrouter: createOpenAIModelsConfig("https://api.wusrouter.com/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),
@@ -419,6 +422,58 @@ const PROVIDER_MODELS_CONFIG = {
   },
   assemblyai: createOpenAIModelsConfig("https://api.assemblyai.com/v1/models"),
   "vercel-ai-gateway": createOpenAIModelsConfig("https://ai-gateway.vercel.sh/v1/models"),
+  bai: {
+    url: "https://api.b.ai/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      const FREE_BAI = new Set(["hy3", "qwen3.8-flash", "mimo-v2.5"]);
+      return raw.map((m) => ({
+        ...m,
+        id: m.id || m.name,
+        name: m.name || m.id,
+        isFree: FREE_BAI.has(m.id || m.name) || String(m.id).endsWith(":free"),
+      }));
+    },
+  },
+  orca: {
+    url: "https://api.orcarouter.ai/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      return raw.map((m) => ({
+        ...m,
+        id: m.id || m.name,
+        name: m.name || m.id,
+        isFree: m.is_free || String(m.id).endsWith("-free") || String(m.id).endsWith(":free") || m.id === "orcarouter/free",
+      }));
+    },
+  },
+  atria: {
+    url: "https://api.atria-asi.ai/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      return raw.map((m) => ({
+        ...m,
+        id: m.id || m.name,
+        name: m.name || m.id,
+        isFree: true,
+      }));
+    },
+  },
   kimchi: {
     customResolver: async (connection) => {
       const result = await resolveKimchiModels({

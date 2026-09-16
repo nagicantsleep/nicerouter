@@ -52,7 +52,10 @@ export default {
     },
   ],
   models: [
-    { id: "orcarouter/free", name: "OrcaRouter Free" },
+    { id: "orcarouter/free", name: "OrcaRouter Free", isFree: true },
+    { id: "deepseek/deepseek-v4-flash-free", name: "DeepSeek V4 Flash (Free)", isFree: true },
+    { id: "tencent/hy3-free", name: "Tencent HY3 (Free)", isFree: true },
+    { id: "z-ai/glm-5.3-flash-free", name: "GLM 5.3 Flash (Free)", isFree: true },
     { id: "orcarouter/fusion", name: "OrcaRouter Fusion" },
     { id: "orcarouter/fusion-flash", name: "OrcaRouter Fusion Flash" },
     { id: "orcarouter/fusion-mini", name: "OrcaRouter Fusion Mini" },
@@ -66,4 +69,6 @@ export default {
     { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
     { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
   ],
+  modelsFetcher: { url: "https://api.orcarouter.ai/v1/models", type: "openai" },
+  passthroughModels: true,
 };

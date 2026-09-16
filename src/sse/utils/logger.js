@@ -10,7 +10,10 @@ const LOG_LEVELS = {
 const LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toUpperCase?.()] ?? LOG_LEVELS.INFO;
 
 function formatTime() {
-  return new Date().toLocaleTimeString("en-US", { hour12: false });
+  return new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    timeZone: process.env.TZ || "Asia/Tokyo",
+  });
 }
 
 // Colored-dot tags to correlate request lines by session (same session → same color)

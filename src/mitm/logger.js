@@ -5,7 +5,10 @@ const { DATA_DIR } = require("./paths");
 const { LOG_BLACKLIST_URL_PARTS } = require("./config");
 
 function time() {
-  return new Date().toLocaleTimeString("en-US", { hour12: false });
+  return new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    timeZone: process.env.TZ || "Asia/Tokyo",
+  });
 }
 
 const log = (msg) => console.log(`[${time()}] [MITM] ${msg}`);

@@ -46,6 +46,8 @@ export default {
     },
   ],
   models: [
-    { id: "Atria-Dawn-Preview", name: "Atria Dawn Preview" },
+    { id: "Atria-Dawn-Preview", name: "Atria Dawn Preview", isFree: true },
   ],
+  modelsFetcher: { url: "https://api.atria-asi.ai/v1/models", type: "openai" },
+  passthroughModels: true,
 };

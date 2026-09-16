@@ -71,10 +71,25 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
   );
 }
 
-export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, connections, isAnthropic }) {
+export default function CompatibleModelsSection({
+  providerStorageAlias,
+  providerDisplayAlias,
+  modelAliases,
+  customModels,
+  copied,
+  onCopy,
+  onDeleteAlias,
+  onAddCustomModel,
+  onDeleteCustomModel,
+  onClearAllModels,
+  onClearAllModelsDirect,
+  connections,
+  isAnthropic,
+}) {
   const [newModel, setNewModel] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [testingModelId, setTestingModelId] = useState(null);
   const [modelTestResults, setModelTestResults] = useState({});
 
@@ -158,6 +173,38 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     }
   };
 
+  const handleClearAll = async (e) => {
+    if (clearing || allModels.length === 0) return;
+    if (e?.shiftKey && onClearAllModelsDirect) {
+      setClearing(true);
+      try {
+        await onClearAllModelsDirect();
+      } finally {
+        setClearing(false);
+      }
+      return;
+    }
+
+    if (onClearAllModels) {
+      onClearAllModels();
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete all ${allModels.length} models for this provider?`)) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const params = new URLSearchParams({ providerAlias: providerStorageAlias, all: "true" });
+      await fetch(`/api/models/custom?${params}`, { method: "DELETE" });
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
+    } catch (err) {
+      console.log("Error clearing custom models:", err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const canImport = connections.some((conn) => conn.isActive !== false);
 
   return (
@@ -184,6 +231,17 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         </Button>
         <Button size="sm" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing}>
           {importing ? "Importing..." : "Import from /models"}
+        </Button>
+        <Button
+          size="sm"
+          variant="danger"
+          icon="delete_sweep"
+          onClick={handleClearAll}
+          disabled={allModels.length === 0 || importing || clearing}
+          loading={clearing}
+          title="Delete all models for this provider (Shift+Click to clear immediately without confirmation)"
+        >
+          {clearing ? "Clearing..." : "Clear all"}
         </Button>
       </div>
 
@@ -224,6 +282,8 @@ CompatibleModelsSection.propTypes = {
   onDeleteAlias: PropTypes.func.isRequired,
   onAddCustomModel: PropTypes.func.isRequired,
   onDeleteCustomModel: PropTypes.func.isRequired,
+  onClearAllModels: PropTypes.func,
+  onClearAllModelsDirect: PropTypes.func,
   connections: PropTypes.arrayOf(PropTypes.shape({
     id: PropTypes.string,
     isActive: PropTypes.bool,

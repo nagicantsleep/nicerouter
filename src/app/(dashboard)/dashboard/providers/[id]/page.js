@@ -26,6 +26,9 @@ const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
   "orca",
   "bai",
   "atria",
+  "modelscope",
+  "onerouter",
+  "wusrouter",
   "qoder",
   "cline",
   "clinepass",
@@ -590,6 +593,49 @@ export default function ProviderDetailPage() {
     }
   };
 
+  const executeClearAllCustomModels = async (providerAliasOverride = providerStorageAlias) => {
+    try {
+      const params = new URLSearchParams({ providerAlias: providerAliasOverride, all: "true" });
+      const res = await fetch(`/api/models/custom?${params}`, { method: "DELETE" });
+      if (res.ok) {
+        await Promise.all([fetchCustomModels(), fetchAliases()]);
+        if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
+        return;
+      }
+
+      // Fallback: delete each model in allModels individually
+      const rows = getProviderCustomModelRows({
+        customModels,
+        modelAliases,
+        providerAlias: providerAliasOverride,
+        type: "llm",
+      });
+      for (const row of rows) {
+        if (row.source === "custom") {
+          const p = new URLSearchParams({ providerAlias: providerAliasOverride, id: row.id, type: "llm" });
+          await fetch(`/api/models/custom?${p}`, { method: "DELETE" });
+        } else if (row.alias) {
+          await fetch(`/api/models/alias?alias=${encodeURIComponent(row.alias)}`, { method: "DELETE" });
+        }
+      }
+      await Promise.all([fetchCustomModels(), fetchAliases()]);
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
+    } catch (error) {
+      console.log("Error clearing custom models:", error);
+    }
+  };
+
+  const handleClearAllCustomModels = (providerAliasOverride = providerStorageAlias) => {
+    setConfirmState({
+      title: "Delete All Models",
+      message: "Are you sure you want to delete all models for this provider? This action cannot be undone.",
+      onConfirm: async () => {
+        setConfirmState(null);
+        await executeClearAllCustomModels(providerAliasOverride);
+      },
+    });
+  };
+
   // Opens the Live Model Import Modal (selective add with search & family filter)
   const handleOpenLiveFetchModal = () => {
     setShowLiveModelModal(true);
@@ -1071,6 +1117,8 @@ export default function ProviderDetailPage() {
           onDeleteAlias={handleDeleteAlias}
           onAddCustomModel={(modelId) => handleAddCustomModel(modelId, "llm", providerStorageAlias)}
           onDeleteCustomModel={(modelId) => handleDeleteCustomModel(modelId, "llm", providerStorageAlias)}
+          onClearAllModels={() => handleClearAllCustomModels(providerStorageAlias)}
+          onClearAllModelsDirect={() => executeClearAllCustomModels(providerStorageAlias)}
           connections={connections}
           isAnthropic={isAnthropicCompatible}
         />

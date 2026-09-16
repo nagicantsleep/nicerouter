@@ -33,10 +33,18 @@ export const PROVIDER_OAUTH = {};
 export const PROVIDER_MEDIA = {};
 for (const entry of REGISTRY) {
   if (entry.transport) {
-    PROVIDERS[entry.id] = buildTransport(entry.transport, entry.oauth);
-    if (entry.transports) PROVIDERS[entry.id].transports = entry.transports;
+    const t = buildTransport(entry.transport, entry.oauth);
+    if (entry.transports) t.transports = entry.transports;
+    PROVIDERS[entry.id] = t;
+    if (entry.alias) PROVIDERS[entry.alias] = t;
+    for (const a of entry.aliases || []) PROVIDERS[a] = t;
   }
-  if (entry.models !== undefined) PROVIDER_MODELS[entry.alias || entry.id] = entry.models.map(normalizeModel);
+  if (entry.models !== undefined) {
+    const norm = entry.models.map(normalizeModel);
+    PROVIDER_MODELS[entry.id] = norm;
+    if (entry.alias) PROVIDER_MODELS[entry.alias] = norm;
+    for (const a of entry.aliases || []) PROVIDER_MODELS[a] = norm;
+  }
   if (entry.oauth) PROVIDER_OAUTH[entry.id] = entry.oauth;
   // Build PROVIDER_MEDIA from top-level fields (post-migration) + legacy entry.media
   const mediaFields = {};

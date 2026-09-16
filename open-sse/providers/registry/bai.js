@@ -64,5 +64,10 @@ export default {
     { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" },
     { id: "kimi-k3", name: "Kimi K3" },
     { id: "qwen3.8-max", name: "Qwen 3.8 Max" },
+    { id: "hy3", name: "HY3 (Free)", isFree: true },
+    { id: "qwen3.8-flash", name: "Qwen 3.8 Flash (Free)", isFree: true },
+    { id: "mimo-v2.5", name: "MiMo v2.5 (Free)", isFree: true },
   ],
+  modelsFetcher: { url: "https://api.b.ai/v1/models", type: "openai" },
+  passthroughModels: true,
 };

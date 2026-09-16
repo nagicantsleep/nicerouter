@@ -38,3 +38,26 @@ test("getClineAuthorizationHeader builds a Bearer header without double prefixin
     "Bearer workos:eyJpeg.eyJbG"
   );
 });
+
+test("buildClineHeaders generates extension telemetry and workos: authorization", async () => {
+  const { buildClineHeaders, CLINE_EXTENSION_VERSION } = await import("../../open-sse/shared/clineAuth.js");
+  const headers = buildClineHeaders("eyJtest.token");
+  assert.equal(headers.Authorization, "Bearer workos:eyJtest.token");
+  assert.equal(headers["X-CLIENT-TYPE"], "VSCode Extension");
+  assert.equal(headers["X-CLIENT-VERSION"], CLINE_EXTENSION_VERSION);
+  assert.equal(headers["User-Agent"], `Cline/${CLINE_EXTENSION_VERSION}`);
+  assert.equal(headers["X-PLATFORM"], "Visual Studio Code");
+});
+
+test("DefaultExecutor('cline').buildHeaders preserves workos: prefix", async () => {
+  const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
+  const executor = new DefaultExecutor("cline");
+  const headers = executor.buildHeaders({
+    accessToken: "eyJhbGciOiJSUzI1NiJ9.eyJwYXAiJ9",
+  });
+  assert.equal(
+    headers.Authorization,
+    "Bearer workos:eyJhbGciOiJSUzI1NiJ9.eyJwYXAiJ9"
+  );
+  assert.equal(headers["X-CLIENT-TYPE"], "VSCode Extension");
+});
