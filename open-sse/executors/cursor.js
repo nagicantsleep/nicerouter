@@ -7,7 +7,9 @@ import {
   wrapConnectRPCFrame,
   decodeMessage,
   parseConnectRPCFrame,
-  extractTextFromResponse
+  extractTextFromResponse,
+  encodeMcpTools,
+  decodeMcpArgs
 } from "../utils/cursorProtobuf.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { estimateUsage } from "../utils/usageTracking.js";
@@ -70,21 +72,175 @@ function textFromContent(content) {
     .join("\n");
 }
 
-function isAgentTextRequest(body) {
-  // Many compatible clients always attach their built-in tool schemas, even
-  // for a normal text turn. Cursor's retired ChatService rejects those
-  // requests; AgentService can still answer the text turn, so ignore schemas
-  // here. A real tool-call/result conversation is kept on the legacy path
-  // until its AgentService tool protocol is implemented.
-  return Array.isArray(body?.messages) && body.messages.every((message) => {
-    if (message?.tool_calls?.length || message?.role === "tool") return false;
-    return typeof message?.content === "string"
-      || Array.isArray(message?.content) && message.content.every((part) => part?.type === "text");
+export function isAgentCapableRequest(body) {
+  if (!body || !Array.isArray(body.messages) || body.messages.length === 0) return false;
+  return body.messages.every((message) => {
+    if (!message || typeof message !== "object") return false;
+    const content = message.content;
+    if (content == null) return true;
+    if (typeof content === "string") return true;
+    if (Array.isArray(content)) {
+      return content.every((part) => part?.type === "text" || part?.type === "tool_result");
+    }
+    return false;
   });
 }
 
+export const isAgentTextRequest = isAgentCapableRequest;
+
+function tryParseJson(str) {
+  try { return JSON.parse(str); } catch { return str; }
+}
+
+export function formatToolsForPrompt(tools) {
+  if (!Array.isArray(tools) || tools.length === 0) return "";
+  const simplified = tools.map((t) => {
+    const fn = t.function || t;
+    return {
+      name: fn.name,
+      description: fn.description || "",
+      parameters: fn.parameters || fn.input_schema || fn.inputSchema || {},
+    };
+  });
+
+  return [
+    "# Available Tools",
+    "You have access to the following tools:",
+    "```json",
+    JSON.stringify(simplified, null, 2),
+    "```",
+    "",
+    "# Tool Calling Instructions",
+    "- If you decide to invoke one or more tools, you MUST output ONLY a single JSON object in the following format, with NO other text or explanation before or after it:",
+    "```json",
+    "{",
+    '  "tool_calls": [',
+    "    {",
+    '      "name": "<tool_name>",',
+    '      "arguments": { <arguments object> }',
+    "    }",
+    "  ]",
+    "}",
+    "```",
+    "- If no tool call is needed, answer the user request directly as normal text.",
+    "- Do NOT attempt to use any IDE or editor-specific commands.",
+  ].join("\n");
+}
+
+export function normalizeMessagesForAgent(messages) {
+  if (!Array.isArray(messages)) return [];
+  const result = [];
+  for (const msg of messages) {
+    if (!msg || typeof msg !== "object") continue;
+    if (msg.role === "tool") {
+      const toolCallId = msg.tool_call_id || "";
+      const content = textFromContent(msg.content);
+      result.push({
+        role: "user",
+        content: `<tool_result tool_call_id="${toolCallId}">\n${content}\n</tool_result>`,
+      });
+      continue;
+    }
+    if (msg.role === "assistant" && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+      const calls = msg.tool_calls.map((tc) => ({
+        id: tc.id || "",
+        name: tc.function?.name || tc.name || "",
+        arguments: typeof tc.function?.arguments === "string"
+          ? tryParseJson(tc.function.arguments)
+          : (tc.function?.arguments || {}),
+      }));
+      const jsonBlock = `\`\`\`json\n${JSON.stringify({ tool_calls: calls }, null, 2)}\n\`\`\``;
+      const text = textFromContent(msg.content);
+      result.push({
+        role: "assistant",
+        content: text ? `${text}\n\n${jsonBlock}` : jsonBlock,
+      });
+      continue;
+    }
+    result.push(msg);
+  }
+  return result;
+}
+
+export function parseToolCallsFromText(text) {
+  if (!text || typeof text !== "string") return null;
+  const trimmed = text.trim();
+
+  // 1. Try markdown code blocks: ```json ... ``` or ``` ... ```
+  const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  let match;
+  const candidates = [];
+  while ((match = codeBlockRegex.exec(trimmed)) !== null) {
+    if (match[1]) candidates.push(match[1].trim());
+  }
+  candidates.push(trimmed);
+
+  // 2. Scan for balanced JSON objects containing "tool_calls"
+  const toolCallsIdx = trimmed.indexOf('"tool_calls"');
+  if (toolCallsIdx >= 0) {
+    const startIdx = trimmed.lastIndexOf("{", toolCallsIdx);
+    if (startIdx >= 0) {
+      let openBraces = 0;
+      for (let i = startIdx; i < trimmed.length; i++) {
+        if (trimmed[i] === "{") openBraces++;
+        else if (trimmed[i] === "}") {
+          openBraces--;
+          if (openBraces === 0) {
+            candidates.push(trimmed.slice(startIdx, i + 1));
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") {
+        let calls = null;
+        if (Array.isArray(parsed.tool_calls)) {
+          calls = parsed.tool_calls;
+        } else if (parsed.name && (parsed.arguments !== undefined || parsed.parameters !== undefined)) {
+          calls = [parsed];
+        }
+
+        if (calls && calls.length > 0) {
+          const validated = calls.map((c, i) => {
+            const name = c.name || c.function?.name || "";
+            let args = c.arguments !== undefined ? c.arguments : (c.parameters !== undefined ? c.parameters : {});
+            if (typeof args !== "string") {
+              args = JSON.stringify(args);
+            }
+            return {
+              id: c.id || `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 9)}`,
+              type: "function",
+              function: {
+                name,
+                arguments: args,
+              },
+            };
+          }).filter((c) => Boolean(c.function.name));
+
+          if (validated.length > 0) {
+            return validated;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
 function encodeHistoryMessage(message) {
-  const content = textFromContent(message?.content);
+  let content = textFromContent(message?.content);
+  if (!content && message?.tool_calls?.length) {
+    content = JSON.stringify({ tool_calls: message.tool_calls });
+  }
+  if (!content && message?.role === "tool") {
+    content = `<tool_result tool_call_id="${message.tool_call_id || ""}">\n${textFromContent(message.content) || ""}\n</tool_result>`;
+  }
   if (!content) return null;
 
   // ConversationHistoryMessage.user / .assistant -> repeated content -> text.
@@ -95,13 +251,24 @@ function encodeHistoryMessage(message) {
   return agentMessage(1, agentMessage(1, agentMessage(1, text)));
 }
 
-function buildAgentRunFrame(messages, model) {
-  const system = messages
+export function buildAgentRunFrame(messages, model, tools = []) {
+  const normalizedMessages = normalizeMessagesForAgent(messages);
+  let toolPrompt = "";
+  if (Array.isArray(tools) && tools.length > 0) {
+    toolPrompt = formatToolsForPrompt(tools);
+  }
+
+  const systemParts = normalizedMessages
     .filter((message) => message?.role === "system")
     .map((message) => textFromContent(message.content))
-    .filter(Boolean)
-    .join("\n\n");
-  const chatMessages = messages.filter((message) => message?.role !== "system");
+    .filter(Boolean);
+
+  if (toolPrompt) {
+    systemParts.push(toolPrompt);
+  }
+
+  const system = systemParts.join("\n\n");
+  const chatMessages = normalizedMessages.filter((message) => message?.role !== "system");
   const currentIndex = [...chatMessages].map((message) => message?.role).lastIndexOf("user");
   const current = currentIndex >= 0 ? chatMessages[currentIndex] : chatMessages.at(-1);
   const history = chatMessages
@@ -124,10 +291,14 @@ function buildAgentRunFrame(messages, model) {
   );
   const conversationAction = agentMessage(1, userAction);
   const requestedModel = concatBuffers(agentString(1, model), agentBool(7, true));
+
+  const mcpToolsBytes = Array.isArray(tools) && tools.length > 0 ? encodeMcpTools(tools) : null;
+
   const runRequest = concatBuffers(
     // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
+    ...(mcpToolsBytes && mcpToolsBytes.length > 0 ? [agentMessage(4, mcpToolsBytes)] : []),
     ...(system ? [agentString(8, system)] : []),
     agentMessage(9, requestedModel),
   );
@@ -504,7 +675,7 @@ export class CursorExecutor extends BaseExecutor {
     let session;
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model));
+      session.write(buildAgentRunFrame(body.messages || [], model, body.tools || []));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
@@ -584,6 +755,29 @@ export class CursorExecutor extends BaseExecutor {
               const execRequest = decodeMessage(serverMessage.get(2)[0].value);
               if (execRequest.has(10)) {
                 session.write(createRequestContextResponse());
+              } else if (execRequest.has(11)) {
+                const mcp = decodeMcpArgs(execRequest.get(11)[0].value);
+                if (mcp && (mcp.toolName || mcp.name)) {
+                  onEvent({
+                    type: "tool_call",
+                    value: {
+                      id: mcp.toolCallId || `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 9)}`,
+                      type: "function",
+                      function: {
+                        name: mcp.toolName || mcp.name,
+                        arguments: typeof mcp.args === "string" ? mcp.args : JSON.stringify(mcp.args || {}),
+                      },
+                    },
+                  });
+                  finished = true;
+                  onEvent({ type: "done" });
+                  session.close();
+                } else {
+                  debugLog(`[CURSOR AGENT] Unsupported exec request fields: ${[...execRequest.keys()].join(",")}`);
+                  finished = true;
+                  onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
+                  session.close();
+                }
               } else {
                 // Every other ExecServerMessage variant is an editor-backed tool
                 // (shell, read, write, …) that 9router cannot service. Fail the
@@ -607,9 +801,11 @@ export class CursorExecutor extends BaseExecutor {
       let content = "";
       let reasoning = "";
       let agentError = null;
+      const nativeToolCalls = [];
       await consume((event) => {
         if (event.type === "text") content += event.value;
         else if (event.type === "thinking") reasoning += event.value;
+        else if (event.type === "tool_call") nativeToolCalls.push(event.value);
         else if (event.type === "error") agentError = event.value;
       });
       if (agentError) {
@@ -624,13 +820,27 @@ export class CursorExecutor extends BaseExecutor {
           responseFormat: FORMATS.OPENAI,
         };
       }
+
+      const parsedCalls = nativeToolCalls.length > 0 ? nativeToolCalls : parseToolCallsFromText(content);
+      const hasToolCalls = Array.isArray(parsedCalls) && parsedCalls.length > 0;
+      const finishReason = hasToolCalls ? "tool_calls" : "stop";
+
       return {
         response: new Response(JSON.stringify({
           id: responseId,
           object: "chat.completion",
           created,
           model,
-          choices: [{ index: 0, message: { role: "assistant", content: content || null, ...(reasoning ? { reasoning_content: reasoning } : {}) }, finish_reason: "stop" }],
+          choices: [{
+            index: 0,
+            message: {
+              role: "assistant",
+              content: hasToolCalls ? null : (content || null),
+              ...(hasToolCalls ? { tool_calls: parsedCalls } : {}),
+              ...(reasoning ? { reasoning_content: reasoning } : {}),
+            },
+            finish_reason: finishReason,
+          }],
           usage: estimateUsage(body, content.length, FORMATS.OPENAI),
         }), { headers: { "Content-Type": "application/json" } }),
         url,
@@ -641,13 +851,32 @@ export class CursorExecutor extends BaseExecutor {
     }
 
     const encoder = new TextEncoder();
+    const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
+    let accumulatedContent = "";
+    let isCheckingToolCall = hasTools;
+    const nativeToolCalls = [];
+
     const responseStream = new ReadableStream({
       start(controller) {
         consume((event) => {
           if (event.type === "text") {
-            controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: event.value } })));
+            if (!isCheckingToolCall) {
+              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: event.value } })));
+            } else {
+              accumulatedContent += event.value;
+              const trimmed = accumulatedContent.trimStart();
+              if (trimmed.startsWith("{") || trimmed.startsWith("`")) {
+                // Keep buffering potential tool call JSON
+              } else if (trimmed.length >= 6) {
+                // Clearly not a tool call JSON block, flush and stop buffering
+                isCheckingToolCall = false;
+                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: accumulatedContent } })));
+              }
+            }
           } else if (event.type === "thinking") {
             controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { reasoning_content: event.value } })));
+          } else if (event.type === "tool_call") {
+            nativeToolCalls.push(event.value);
           } else if (event.type === "error") {
             // An SSE error frame, not a content delta: a protocol failure must not
             // be rendered to the user as the assistant's reply, and downstream
@@ -656,7 +885,21 @@ export class CursorExecutor extends BaseExecutor {
             controller.enqueue(encoder.encode(SSE_DONE));
             controller.close();
           } else if (event.type === "done") {
-            controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: {}, finishReason: "stop" })));
+            if (nativeToolCalls.length > 0) {
+              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { tool_calls: nativeToolCalls }, finishReason: "tool_calls" })));
+            } else if (isCheckingToolCall) {
+              const parsedCalls = parseToolCallsFromText(accumulatedContent);
+              if (parsedCalls && parsedCalls.length > 0) {
+                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { tool_calls: parsedCalls }, finishReason: "tool_calls" })));
+              } else {
+                if (accumulatedContent) {
+                  controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: accumulatedContent } })));
+                }
+                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: {}, finishReason: "stop" })));
+              }
+            } else {
+              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: {}, finishReason: "stop" })));
+            }
             controller.enqueue(encoder.encode(SSE_DONE));
             controller.close();
           }
