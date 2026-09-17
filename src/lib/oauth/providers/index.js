@@ -98,9 +98,9 @@ export async function generateAuthData(providerName, redirectUri, meta) {
     // Device code flow doesn't have auth URL upfront
     authUrl = null;
   } else if (provider.flowType === "authorization_code_pkce") {
-    authUrl = provider.buildAuthUrl(config, redirectUri, state, codeChallenge, meta || {});
+    authUrl = await provider.buildAuthUrl(config, redirectUri, state, codeChallenge, meta || {});
   } else {
-    authUrl = provider.buildAuthUrl(config, redirectUri, state, undefined, meta || {});
+    authUrl = await provider.buildAuthUrl(config, redirectUri, state, undefined, meta || {});
   }
 
   return {

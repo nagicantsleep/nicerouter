@@ -1,5 +1,5 @@
 // Re-export from open-sse with localDb integration
-import { getModelAliases, getComboByName, getProviderNodes } from "@/lib/localDb";
+import { getModelAliases, getComboByName, updateCombo, getProviderNodes } from "@/lib/localDb";
 import { parseModel as parseModelCore, resolveModelAliasFromMap, getModelInfoCore } from "open-sse/services/model.js";
 import REGISTRY from "open-sse/providers/registry/index.js";
 
@@ -100,3 +100,42 @@ export async function getComboModels(modelStr) {
   }
   return null;
 }
+
+/**
+ * Automatically disable a model in a combo when it exhausts its quota.
+ * @param {string} comboName
+ * @param {string} failedModel
+ * @param {number} [status]
+ * @param {string} [errorText]
+ * @returns {Promise<boolean>} Whether the model was disabled in the combo
+ */
+export async function autoDisableComboModel(comboName, failedModel, status, errorText) {
+  if (!comboName || !failedModel) return false;
+  try {
+    const combo = await getComboByName(comboName);
+    if (!combo || !Array.isArray(combo.models) || combo.models.length === 0) return false;
+
+    let modified = false;
+    const updatedModels = combo.models.map((m) => {
+      const name = typeof m === "string" ? m : (m?.model || m?.id || m?.name || "");
+      if (name === failedModel) {
+        const isEnabled = typeof m === "string" ? true : m?.enabled !== false;
+        if (isEnabled) {
+          modified = true;
+          return typeof m === "string" ? { model: m, enabled: false } : { ...m, enabled: false };
+        }
+      }
+      return m;
+    });
+
+    if (modified) {
+      await updateCombo(combo.id, { models: updatedModels });
+      console.warn(`[COMBO] 🚫 Auto-disabled model "${failedModel}" in combo "${comboName}" (HTTP ${status || "unknown"}: ${errorText || "quota exhausted"})`);
+      return true;
+    }
+  } catch (err) {
+    console.error(`[COMBO] Failed to auto-disable model "${failedModel}" in combo "${comboName}":`, err);
+  }
+  return false;
+}
+

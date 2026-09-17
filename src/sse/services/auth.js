@@ -25,16 +25,35 @@ export function isAccountWideQuotaError(status, errorText) {
   if (!errorText) return false;
   const lower = (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase();
   return (
+    (Number(status) === 402 && (lower.includes("credit") || lower.includes("quota") || lower.includes("balance") || lower.includes("insufficient") || lower.includes("limit"))) ||
     lower.includes("daily usage limit") ||
     lower.includes("daily limit") ||
     lower.includes("per period for this") ||
     lower.includes("maximum $") ||
     lower.includes("billing_hard_limit_reached") ||
     lower.includes("insufficient_quota") ||
+    lower.includes("insufficient quota") ||
+    lower.includes("exceeded your current quota") ||
     lower.includes("credit balance is too low") ||
     lower.includes("account has run out of credits") ||
+    lower.includes("out of credits") ||
+    lower.includes("run out of credits") ||
+    lower.includes("no credits") ||
+    lower.includes("insufficient balance") ||
+    lower.includes("balance is insufficient") ||
+    lower.includes("balance insufficient") ||
+    lower.includes("credit limit reached") ||
+    lower.includes("usage limit reached") ||
+    lower.includes("usage limit exceeded") ||
+    lower.includes("free tier limit reached") ||
+    lower.includes("free quota exceeded") ||
+    lower.includes("plan limit exceeded") ||
+    lower.includes("usage limit for your plan") ||
+    lower.includes("reached your additional usage limit") ||
     lower.includes("account deactivated") ||
-    (lower.includes("quota exceeded") && (Number(status) === 429 || Number(status) === 403 || Number(status) === 402))
+    lower.includes("account_deactivated") ||
+    lower.includes("credit expired") ||
+    ((lower.includes("quota exceeded") || lower.includes("quota_exceeded")) && (Number(status) === 429 || Number(status) === 403 || Number(status) === 503 || Number(status) === 402))
   );
 }
 
@@ -347,17 +366,27 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
   const lockUpdate = buildModelLockUpdate(isAccountWide ? null : model, cooldownMs);
 
-  await updateProviderConnection(connectionId, {
+  const updateData = {
     ...lockUpdate,
     testStatus: "unavailable",
     lastError: reason,
     errorCode: status,
     lastErrorAt: new Date().toISOString(),
     backoffLevel: newBackoffLevel ?? backoffLevel
-  });
+  };
+
+  const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
+
+  // When quota is exhausted / daily limit reached, auto-disable the key (isActive: false)
+  // to avoid repeatedly selecting and failing on this dead key.
+  if (isAccountWide) {
+    updateData.isActive = false;
+    log.warn("AUTH", `⚠️ Auto-disabled connection ${connectionId} (${connName}) due to quota exhaustion: ${reason}`);
+  }
+
+  await updateProviderConnection(connectionId, updateData);
 
   const lockKey = Object.keys(lockUpdate)[0];
-  const connName = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
   log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
 
   if (provider && status && reason) {

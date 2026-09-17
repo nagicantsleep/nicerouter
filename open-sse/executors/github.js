@@ -13,7 +13,30 @@ import { SSE_DONE } from "../utils/sseConstants.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import crypto from "crypto";
 
-export const COPILOT_AUTO_MODEL = "goldeneye-free-auto";
+export const COPILOT_AUTO_MODEL = "gpt-4.1";
+
+export function isCopilotAutoModel(model) {
+  return model === "auto" || model === "goldeneye-free-auto" || model === COPILOT_AUTO_MODEL;
+}
+
+function isCopilotModelUnsupported(status, errorBody) {
+  if (![400, 403, 404, 422].includes(status)) return false;
+  const lower = String(errorBody || "").toLowerCase();
+  return (
+    lower.includes("not supported") ||
+    lower.includes("model_not_supported") ||
+    lower.includes("not available") ||
+    lower.includes("unsupported_api_for_model") ||
+    lower.includes("not authorized") ||
+    lower.includes("unauthorized") ||
+    lower.includes("model_not_found") ||
+    lower.includes("model not found") ||
+    lower.includes("resource not found") ||
+    lower.includes("does not have access") ||
+    lower.includes("plan does not support") ||
+    lower.includes("quota")
+  );
+}
 
 export class GithubExecutor extends BaseExecutor {
   constructor() {
@@ -28,7 +51,7 @@ export class GithubExecutor extends BaseExecutor {
   // catalog (services/copilotModels.js) regularly exposes claude-* variants ahead
   // of the static registry (registry/github.js).
   isClaudeModel(model) {
-    if (model === "auto" || model === COPILOT_AUTO_MODEL) return false;
+    if (isCopilotAutoModel(model)) return false;
     return /claude/i.test(model || "");
   }
 
@@ -99,7 +122,7 @@ export class GithubExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
-    const effectiveModel = model === "auto" ? COPILOT_AUTO_MODEL : model;
+    const effectiveModel = isCopilotAutoModel(model) ? COPILOT_AUTO_MODEL : model;
     const transformed = { ...body, model: effectiveModel };
     if (this.requiresMaxCompletionTokens(effectiveModel) && transformed.max_tokens !== undefined) {
       transformed.max_completion_tokens = transformed.max_tokens;
@@ -121,7 +144,7 @@ export class GithubExecutor extends BaseExecutor {
   // returned a "not supported" error for an unrelated reason. Fixes #1062.
   supportsResponsesEndpoint(model) {
     const m = (model || "").toLowerCase();
-    return !(m.includes("gemini") || m.includes("claude") || m === "auto" || m === COPILOT_AUTO_MODEL);
+    return !(m.includes("gemini") || m.includes("claude") || isCopilotAutoModel(m));
   }
 
   async executeWithChatCompletionsFallback(options) {
@@ -133,13 +156,25 @@ export class GithubExecutor extends BaseExecutor {
         model: COPILOT_AUTO_MODEL
       })
     };
-    return super.execute({ ...fallbackOptions, proxyOptions: options.proxyOptions || null });
+    const res = await super.execute({ ...fallbackOptions, proxyOptions: options.proxyOptions || null });
+    if (!res.response?.ok && isCopilotModelUnsupported(res.response?.status)) {
+      const secondaryOptions = {
+        ...options,
+        model: "gpt-4o",
+        body: this.sanitizeMessagesForChatCompletions({
+          ...options.body,
+          model: "gpt-4o"
+        })
+      };
+      return super.execute({ ...secondaryOptions, proxyOptions: options.proxyOptions || null });
+    }
+    return res;
   }
 
   async execute(options) {
     let { model, log } = options;
 
-    if (model === "auto") {
+    if (isCopilotAutoModel(model)) {
       model = COPILOT_AUTO_MODEL;
       options = { ...options, model, body: { ...options.body, model: COPILOT_AUTO_MODEL } };
     }
@@ -172,44 +207,43 @@ export class GithubExecutor extends BaseExecutor {
     // Only escalate to /responses for models that endpoint can actually serve.
     // Gemini/Claude would otherwise loop into a misleading "does not support
     // Responses API" 400 instead of surfacing the real /chat/completions error (#1062).
-    if (result.response.status === HTTP_STATUS.BAD_REQUEST) {
-      const errorBody = await result.response.clone().text();
-      const isNotSupported =
-        errorBody.includes("The requested model is not supported") ||
-        errorBody.includes("model_not_supported");
-      const isRequiresResponses =
-        errorBody.includes("not accessible via the /chat/completions endpoint");
+    if (!result.response.ok) {
+      const status = result.response.status;
+      if ([400, 403, 404, 422].includes(status)) {
+        const errorBody = await result.response.clone().text();
+        const isNotSupported = isCopilotModelUnsupported(status, errorBody);
+        const isRequiresResponses =
+          errorBody.includes("not accessible via the /chat/completions endpoint");
 
-      if (isRequiresResponses && this.supportsResponsesEndpoint(model)) {
-        log?.warn?.("GITHUB", `Model ${model} requires /responses. Switching...`);
-        this.knownCodexModels.add(model);
-        return this.executeWithResponsesEndpoint(options);
-      }
-
-      if (isNotSupported && this.supportsResponsesEndpoint(model)) {
-        log?.warn?.("GITHUB", `Model ${model} not accessible on /chat/completions. Trying /responses...`);
-        const respResult = await this.executeWithResponsesEndpoint(options);
-        if (respResult.response.ok) {
+        if (isRequiresResponses && this.supportsResponsesEndpoint(model)) {
+          log?.warn?.("GITHUB", `Model ${model} requires /responses. Switching...`);
           this.knownCodexModels.add(model);
+          return this.executeWithResponsesEndpoint(options);
+        }
+
+        if (isNotSupported && this.supportsResponsesEndpoint(model)) {
+          log?.warn?.("GITHUB", `Model ${model} not accessible on /chat/completions. Trying /responses...`);
+          const respResult = await this.executeWithResponsesEndpoint(options);
+          if (respResult.response.ok) {
+            this.knownCodexModels.add(model);
+            return respResult;
+          }
+
+          const respErrorBody = await respResult.response.clone().text();
+          if (
+            !isCopilotAutoModel(model) &&
+            isCopilotModelUnsupported(respResult.response.status, respErrorBody)
+          ) {
+            log?.warn?.("GITHUB", `Model ${model} not supported on /responses either (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
+            return this.executeWithChatCompletionsFallback(options);
+          }
           return respResult;
         }
 
-        const respErrorBody = await respResult.response.clone().text();
-        if (
-          model !== COPILOT_AUTO_MODEL &&
-          (respErrorBody.includes("The requested model is not supported") ||
-            respErrorBody.includes("model_not_supported") ||
-            respErrorBody.includes("unsupported_api_for_model"))
-        ) {
-          log?.warn?.("GITHUB", `Model ${model} not supported on /responses either (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
+        if (isNotSupported && !isCopilotAutoModel(model)) {
+          log?.warn?.("GITHUB", `Model ${model} not supported on this Copilot account (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
           return this.executeWithChatCompletionsFallback(options);
         }
-        return respResult;
-      }
-
-      if (isNotSupported && model !== COPILOT_AUTO_MODEL) {
-        log?.warn?.("GITHUB", `Model ${model} not supported on this Copilot account (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
-        return this.executeWithChatCompletionsFallback(options);
       }
     }
 
@@ -328,9 +362,9 @@ export class GithubExecutor extends BaseExecutor {
     }, proxyOptions);
 
     if (!response.ok) {
-      if (response.status === HTTP_STATUS.BAD_REQUEST) {
+      if ([400, 403, 404, 422].includes(response.status)) {
         const errorText = await response.clone().text();
-        if (errorText.includes("The requested model is not supported") || errorText.includes("model_not_supported")) {
+        if (isCopilotModelUnsupported(response.status, errorText) && !isCopilotAutoModel(model)) {
           log?.warn?.("GITHUB", `Model ${model} not supported on Copilot /v1/messages (likely Student/Free plan). Falling back to auto (${COPILOT_AUTO_MODEL})...`);
           return this.executeWithChatCompletionsFallback(options);
         }
@@ -398,6 +432,15 @@ export class GithubExecutor extends BaseExecutor {
       headers,
       transformedBody
     };
+  }
+
+  async executeWithChatCompletionsFallback(options) {
+    const fallbackOptions = {
+      ...options,
+      model: COPILOT_AUTO_MODEL,
+      body: { ...options.body, model: COPILOT_AUTO_MODEL }
+    };
+    return super.execute({ ...fallbackOptions, proxyOptions: options.proxyOptions || null });
   }
 
   async refreshCopilotToken(githubAccessToken, log, proxyOptions = null) {

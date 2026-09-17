@@ -75,8 +75,8 @@ function expandCatalog(raw) {
     seen.add(id);
     models.push({ id, name: m.name || id });
   }
-  if ((seen.has("goldeneye-free-auto") || models.length > 0) && !seen.has("auto")) {
-    models.push({ id: "auto", name: "Copilot Auto (Student / Free)" });
+  if (models.length > 0 && !seen.has("auto")) {
+    models.unshift({ id: "auto", name: "Copilot Auto (Student / Free)" });
   }
   return models;
 }

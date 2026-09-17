@@ -290,6 +290,49 @@ export function getComboModelsFromData(modelStr, combosData) {
 }
 
 /**
+ * Detect whether an error indicates quota exhaustion (e.g. daily limits, out of credits, balance exhausted).
+ * @param {number} status
+ * @param {string} errorText
+ * @returns {boolean}
+ */
+export function isQuotaExhaustionError(status, errorText) {
+  if (!errorText) return false;
+  const lower = (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase();
+  return (
+    (Number(status) === 402 && (lower.includes("credit") || lower.includes("quota") || lower.includes("balance") || lower.includes("insufficient") || lower.includes("limit"))) ||
+    lower.includes("daily usage limit") ||
+    lower.includes("daily limit") ||
+    lower.includes("per period for this") ||
+    lower.includes("maximum $") ||
+    lower.includes("billing_hard_limit_reached") ||
+    lower.includes("insufficient_quota") ||
+    lower.includes("insufficient quota") ||
+    lower.includes("exceeded your current quota") ||
+    lower.includes("credit balance is too low") ||
+    lower.includes("account has run out of credits") ||
+    lower.includes("out of credits") ||
+    lower.includes("run out of credits") ||
+    lower.includes("no credits") ||
+    lower.includes("insufficient balance") ||
+    lower.includes("balance is insufficient") ||
+    lower.includes("balance insufficient") ||
+    lower.includes("credit limit reached") ||
+    lower.includes("usage limit reached") ||
+    lower.includes("usage limit exceeded") ||
+    lower.includes("free tier limit reached") ||
+    lower.includes("free quota exceeded") ||
+    lower.includes("plan limit exceeded") ||
+    lower.includes("usage limit for your plan") ||
+    lower.includes("reached your additional usage limit") ||
+    lower.includes("account deactivated") ||
+    lower.includes("account_deactivated") ||
+    lower.includes("credit expired") ||
+    ((lower.includes("quota exceeded") || lower.includes("quota_exceeded")) && (Number(status) === 429 || Number(status) === 403 || Number(status) === 503 || Number(status) === 402)) ||
+    (lower.includes("no active credentials") && (Number(status) === 404 || Number(status) === 503))
+  );
+}
+
+/**
  * Handle combo chat with fallback
  * @param {Object} options
  * @param {Object} options.body - Request body
@@ -299,9 +342,10 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @param {string} [options.comboName] - Name of the combo (for round-robin tracking)
  * @param {string} [options.comboStrategy] - Strategy: "fallback" or "round-robin"
  * @param {number|string} [options.comboStickyLimit=1] - Requests per combo model before switching
+ * @param {Function} [options.onModelQuotaExceeded] - Callback when a model encounters quota exhaustion: (comboName, modelStr, status, errorText) => Promise<boolean>
  * @returns {Promise<Response>}
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, onModelQuotaExceeded }) {
   if (models?.disabled) {
     return new Response(
       JSON.stringify({
@@ -392,6 +436,18 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // Check if should fallback to next model
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
 
+      // Auto-disable model from combo if quota exhausted
+      if (onModelQuotaExceeded && comboName && isQuotaExhaustionError(result.status, errorText)) {
+        try {
+          const disabled = await onModelQuotaExceeded(comboName, modelStr, result.status, errorText);
+          if (disabled) {
+            log.warn("COMBO", `${cPrefix}🚫 Auto-disabled model "${modelStr}" in combo "${comboName}" due to quota exhaustion`);
+          }
+        } catch (e) {
+          log.warn("COMBO", `${cPrefix}Failed in onModelQuotaExceeded for "${modelStr}":`, e);
+        }
+      }
+
       if (!shouldFallback) {
         log.warn("COMBO", `${cPrefix}Model ${modelStr} failed (no fallback)`, { status: result.status, error: errorText });
         return result;
@@ -431,6 +487,18 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // Catch unexpected exceptions to ensure fallback continues
       lastError = error.message || String(error);
       if (!lastStatus) lastStatus = 500;
+
+      if (onModelQuotaExceeded && comboName && isQuotaExhaustionError(500, lastError)) {
+        try {
+          const disabled = await onModelQuotaExceeded(comboName, modelStr, 500, lastError);
+          if (disabled) {
+            log.warn("COMBO", `${cPrefix}🚫 Auto-disabled model "${modelStr}" in combo "${comboName}" due to quota exhaustion`);
+          }
+        } catch (e) {
+          log.warn("COMBO", `${cPrefix}Failed in onModelQuotaExceeded for "${modelStr}":`, e);
+        }
+      }
+
       const fallbackTarget = nextModel ? `→ falling back to ${nextModel}` : "(no more models)";
       log.warn("COMBO", `${cPrefix}⚠️ Model ${modelStr} threw error: ${lastError} ${fallbackTarget}`, {
         combo: cName,
@@ -623,9 +691,10 @@ function collectPanel(calls, { minPanel, stragglerGraceMs, panelHardTimeoutMs })
  * @param {string} [options.comboName] - Combo name (logging)
  * @param {string} [options.judgeModel] - Judge model; falls back to panel[0]
  * @param {Object} [options.tuning] - Override FUSION_DEFAULTS (minPanel, grace, timeout)
+ * @param {Function} [options.onModelQuotaExceeded] - Callback when a model encounters quota exhaustion
  * @returns {Promise<Response>}
  */
-export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning }) {
+export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning, onModelQuotaExceeded }) {
   const panel = Array.isArray(models) ? models.filter(Boolean) : [];
   if (panel.length === 0) {
     return new Response(
@@ -671,7 +740,20 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
     if (!res) { log.warn("FUSION", `Panel ${model} dropped (straggler/timeout)`); continue; }
     if (res.__timeout) { log.warn("FUSION", `Panel ${model} timed out`); continue; }
     if (res.__error) { log.warn("FUSION", `Panel ${model} threw`, { error: res.__error?.message || String(res.__error) }); continue; }
-    if (!res.ok) { log.warn("FUSION", `Panel ${model} failed`, { status: res.status }); continue; }
+    if (!res.ok) {
+      log.warn("FUSION", `Panel ${model} failed`, { status: res.status });
+      if (onModelQuotaExceeded && comboName) {
+        let errText = "";
+        try {
+          const errBody = await res.clone().json();
+          errText = errBody?.error?.message || errBody?.error || errBody?.message || "";
+        } catch {}
+        if (isQuotaExhaustionError(res.status, errText)) {
+          onModelQuotaExceeded(comboName, model, res.status, errText).catch(() => {});
+        }
+      }
+      continue;
+    }
     try {
       const json = await res.clone().json();
       const text = extractPanelText(json);

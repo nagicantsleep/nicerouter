@@ -274,6 +274,16 @@ function createErrorResponse(jsonError) {
   });
 }
 
+export function normalizeCursorModel(model) {
+  if (!model) return "default";
+  const m = model.toLowerCase().trim();
+  if (m === "composer" || m === "cursor-composer") return "composer-2.5";
+  if (m === "grok" || m === "cursor-grok") return "grok-4.5";
+  if (m === "cursor-grok-4.6") return "grok-4.6";
+  if (m === "cursor-grok-4.5") return "grok-4.5";
+  return model;
+}
+
 export class CursorExecutor extends BaseExecutor {
   constructor() {
     super("cursor", PROVIDERS.cursor);
@@ -298,13 +308,14 @@ export class CursorExecutor extends BaseExecutor {
   transformRequest(model, body, stream, credentials) {
     // Messages are already translated by chatCore (claude→openai→cursor)
     // Do NOT call openaiToCursorRequest again — double-translation drops tool_results
+    const effectiveModel = normalizeCursorModel(model);
     const messages = body.messages || [];
     const tools = body.tools || [];
     const reasoningEffort = body.reasoning_effort || null;
     // Detect Claude Code UA to force Agent mode (issue #643)
     const ua = credentials?.rawHeaders?.["user-agent"] || "";
     const forceAgentMode = ua.includes("claude-cli") || ua.includes("claude-code") || ua.includes("Claude Code");
-    return generateCursorBody(messages, model, tools, reasoningEffort, forceAgentMode);
+    return generateCursorBody(messages, effectiveModel, tools, reasoningEffort, forceAgentMode);
   }
 
   async makeFetchRequest(url, headers, body, signal, proxyOptions = null) {
@@ -563,6 +574,7 @@ export class CursorExecutor extends BaseExecutor {
               if (update.has(14)) {
                 finished = true;
                 onEvent({ type: "done" });
+                session.close();
               }
             }
 
@@ -579,6 +591,7 @@ export class CursorExecutor extends BaseExecutor {
                 debugLog(`[CURSOR AGENT] Unsupported exec request fields: ${[...execRequest.keys()].join(",")}`);
                 finished = true;
                 onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
+                session.close();
               }
             }
           });
@@ -664,9 +677,10 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+    const effectiveModel = normalizeCursorModel(model);
     if (isAgentTextRequest(body)) {
       try {
-        return await this.executeAgent({ model, body, stream, credentials, signal });
+        return await this.executeAgent({ model: effectiveModel, body, stream, credentials, signal });
       } catch (error) {
         return {
           response: new Response(JSON.stringify({
@@ -681,7 +695,7 @@ export class CursorExecutor extends BaseExecutor {
 
     const url = this.buildUrl();
     const headers = this.buildHeaders(credentials);
-    const transformedBody = this.transformRequest(model, body, stream, credentials);
+    const transformedBody = this.transformRequest(effectiveModel, body, stream, credentials);
 
     try {
       const shouldForceFetch = proxyOptions?.enabled === true || proxyOptions?.connectionProxyEnabled === true || !!proxyOptions?.vercelRelayUrl;

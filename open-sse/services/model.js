@@ -19,6 +19,8 @@ for (const entry of REGISTRY) {
 
 const BUILTIN_MODEL_ALIASES = {
   "grok-build": "gcli/grok-build",
+  "auto": "github/auto",
+  "copilot-auto": "github/auto",
 };
 
 /**

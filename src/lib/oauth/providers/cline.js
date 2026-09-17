@@ -4,13 +4,28 @@ import { getClineAccessToken } from "../../../../open-sse/shared/clineAuth.js";
 const cline = {
   config: CLINE_CONFIG,
   flowType: "authorization_code",
-  buildAuthUrl: (config, redirectUri) => {
+  buildAuthUrl: async (config, redirectUri) => {
     const params = new URLSearchParams({
       client_type: "extension",
       callback_url: redirectUri,
       redirect_uri: redirectUri,
     });
-    return `${config.authorizeUrl}?${params.toString()}`;
+    const authorizeUrl = `${config.authorizeUrl}?${params.toString()}`;
+    try {
+      // Resolve the WorkOS authorize URL and append prompt=select_account so the browser
+      // always prompts to choose/login an account instead of silently re-authenticating the previous one.
+      const res = await fetch(authorizeUrl, { redirect: "manual", signal: AbortSignal.timeout(4000) });
+      const workosUrl = res.headers.get("location");
+      if (workosUrl) {
+        const url = new URL(workosUrl);
+        url.searchParams.set("prompt", "select_account");
+        url.searchParams.set("screen_hint", "sign-in");
+        return url.toString();
+      }
+    } catch {
+      // Fallback to standard authorizeUrl on network failure
+    }
+    return authorizeUrl;
   },
   exchangeToken: async (config, code, redirectUri) => {
     try {

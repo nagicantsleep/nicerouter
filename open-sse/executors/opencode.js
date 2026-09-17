@@ -5,8 +5,13 @@ import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
+import {
+  OPENCODE_USER_AGENT,
+  OPENCODE_FREE_TIER_ERROR,
+  isAcceptableDownstreamUserAgent,
+} from "../config/opencodeCli.js";
+import { OPENCODE_FREE_TIER_ERROR_MESSAGE } from "../config/errorConfig.js";
 
-const OPENCODE_UA = "opencode";
 // Models served by /zen/v1/responses; every other model stays on /chat/completions.
 const RESPONSES_MODELS = new Set([
   "muse-spark-1.2-contributor-free",
@@ -18,7 +23,21 @@ function generateRequestId() {
 }
 
 function generateSessionId() {
-  return `ses_${crypto.randomUUID().replace(/-/g, "")}`;
+  const bytes = new Uint8Array(13);
+  crypto.getRandomValues(bytes);
+  return "ses_" + [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// The Console strictly enforces `ses_[0-9a-f]{26}` (ses_ followed by exactly 26 lowercase hex characters).
+// Longer or shorter sessions fail with 403 FreeTierError.
+function toOpencodeSession(id) {
+  if (!id) return null;
+  const str = String(id).trim();
+  if (/^ses_[0-9a-f]{26}$/i.test(str)) {
+    return str.toLowerCase();
+  }
+  const hash = crypto.createHash("sha256").update(str).digest("hex").slice(0, 26);
+  return `ses_${hash}`;
 }
 
 // Strip the thinking suffix "model(level)" so registry lookups hit the base id.
@@ -33,13 +52,13 @@ function isResponsesModel(model) {
 
 function resolveOpencodeSession(body, credentials) {
   const headers = credentials?.rawHeaders || {};
-  return resolveSessionId({
+  return toOpencodeSession(resolveSessionId({
     headers,
     body,
     connectionId: credentials?.connectionId,
     scope: "opencode",
     generate: generateSessionId,
-  });
+  }));
 }
 
 function normalizeOpencodeReasoning(model, body) {
@@ -94,19 +113,27 @@ export class OpenCodeExecutor extends BaseExecutor {
       : `${base}/zen/v1/chat/completions`;
   }
 
+  parseError(response, bodyText) {
+    const status = response?.status ?? 0;
+    if (status === 403 && String(bodyText || "").includes(OPENCODE_FREE_TIER_ERROR)) {
+      return { status, message: OPENCODE_FREE_TIER_ERROR_MESSAGE };
+    }
+    return { status, message: bodyText || `HTTP ${status}` };
+  }
+
   buildHeaders(credentials, stream = true) {
     const raw = credentials?.rawHeaders || {};
     const lower = {};
     for (const [k, v] of Object.entries(raw)) lower[k.toLowerCase()] = v;
 
     const downstreamUa = lower["user-agent"] || "";
-    const isOpencodeDownstream = downstreamUa.toLowerCase().includes("opencode");
+    const useDownstreamUa = isAcceptableDownstreamUserAgent(downstreamUa);
 
     return {
       "Content-Type": "application/json",
       "Authorization": "Bearer public",
-      "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_UA,
-      "x-opencode-client": lower["x-opencode-client"] || "desktop",
+      "User-Agent": useDownstreamUa ? downstreamUa : OPENCODE_USER_AGENT,
+      "x-opencode-client": lower["x-opencode-client"] || "cli",
       "x-opencode-session": lower["x-opencode-session"] || this._currentSessionId || generateSessionId(),
       "x-opencode-request": lower["x-opencode-request"] || generateRequestId(),
       "x-opencode-project": lower["x-opencode-project"] || "global",

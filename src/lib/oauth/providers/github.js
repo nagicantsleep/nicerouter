@@ -54,14 +54,22 @@ const github = {
   },
   postExchange: async (tokens) => {
     // Get Copilot token using GitHub access token
-    const copilotRes = await fetch(GITHUB_CONFIG.copilotTokenUrl, {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-        Accept: "application/json",
-        "X-GitHub-Api-Version": GITHUB_CONFIG.apiVersion,
-        "User-Agent": GITHUB_CONFIG.userAgent,
-      },
-    });
+    const copilotHeaders = {
+      Authorization: `token ${tokens.access_token}`,
+      Accept: "application/json",
+      "X-GitHub-Api-Version": GITHUB_CONFIG.apiVersion,
+      "User-Agent": GITHUB_CONFIG.userAgent || "GitHubCopilotChat/0.24.1",
+      "Editor-Version": "vscode/1.96.2",
+      "Editor-Plugin-Version": "copilot-chat/0.24.1",
+    };
+
+    let copilotRes = await fetch(GITHUB_CONFIG.copilotTokenUrl, { headers: copilotHeaders });
+    if (!copilotRes.ok) {
+      // Fallback to Bearer scheme if token scheme failed
+      copilotRes = await fetch(GITHUB_CONFIG.copilotTokenUrl, {
+        headers: { ...copilotHeaders, Authorization: `Bearer ${tokens.access_token}` },
+      });
+    }
     const copilotToken = copilotRes.ok ? await copilotRes.json() : {};
 
     // Get user info from GitHub
@@ -87,6 +95,9 @@ const github = {
     providerSpecificData: {
       copilotToken: extra?.copilotToken?.token,
       copilotTokenExpiresAt: extra?.copilotToken?.expires_at,
+      sku: extra?.copilotToken?.sku,
+      plan: extra?.copilotToken?.sku,
+      endpoints: extra?.copilotToken?.endpoints,
       githubUserId: extra?.userInfo?.id,
       githubLogin: extra?.userInfo?.login,
       githubName: extra?.userInfo?.name,
