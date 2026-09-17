@@ -135,6 +135,7 @@ import pAtria from "./atria.js";
 import pModelScope from "./modelscope.js";
 import pOneRouter from "./onerouter.js";
 import pWusRouter from "./wusrouter.js";
+import pFreebuff from "./freebuff.js";
 export default [
   p0,
   p1,
@@ -270,4 +271,5 @@ export default [
   pModelScope,
   pOneRouter,
   pWusRouter,
+  pFreebuff,
 ];
