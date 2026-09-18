@@ -27,6 +27,7 @@ import WindsurfExecutor from "./windsurf.js";
 import { DefaultExecutor } from "./default.js";
 import { DevinCliExecutor } from "./devin-cli.js";
 import { FreebuffExecutor } from "./freebuff.js";
+import { TypeSafeExecutor } from "./typesafe.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -66,6 +67,11 @@ const executors = {
   "devin-cli": new DevinCliExecutor(),
   freebuff: new FreebuffExecutor(),
   fb: new FreebuffExecutor(), // Alias
+  typesafe: new TypeSafeExecutor(),
+  "typesafe-ai": new TypeSafeExecutor(),
+  typesage: new TypeSafeExecutor(),
+  "typesage-ai": new TypeSafeExecutor(),
+  ts: new TypeSafeExecutor(),
 };
 
 const defaultCache = new Map();
@@ -109,3 +115,4 @@ export { default as TraeExecutor } from "./trae.js";
 export { default as ZedExecutor } from "./zed.js";
 export { default as WindsurfExecutor } from "./windsurf.js";
 export { DevinCliExecutor } from "./devin-cli.js";
+export { TypeSafeExecutor } from "./typesafe.js";

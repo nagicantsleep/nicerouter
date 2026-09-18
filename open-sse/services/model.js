@@ -133,6 +133,7 @@ const MODEL_PREFIX_PROVIDERS = [
   [/^gpt-/, "openai"],
   [/^o[134]/, "openai"],
   [/^deepseek-/, "openrouter"],
+  [/^jev(-|$)/, "typesafe"],
 ];
 
 /**

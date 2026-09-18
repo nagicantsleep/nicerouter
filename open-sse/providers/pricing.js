@@ -140,6 +140,11 @@ export const MODEL_PRICING = {
   "gpt-oss-120b-medium":          { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
   "vision-model":                 { input: 1.50,  output: 6.00,  cached: 0.75,  reasoning: 9.00,   cache_creation: 1.50  },
   "coder-model":                  { input: 1.50,  output: 6.00,  cached: 0.75,  reasoning: 9.00,   cache_creation: 1.50  },
+
+  // === TypeSafe AI (Jev) ===
+  "jev-latest":                   { input: 0.042, output: 0.00 },
+  "jev-1.13.0":                   { input: 0.042, output: 0.00 },
+  "jev-1.12.0":                   { input: 0.042, output: 0.00 },
 };
 
 /**
@@ -349,6 +354,7 @@ export const PATTERN_PRICING = [
   // --- Grok ---
   { pattern: "grok-code-*",     pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
   { pattern: "grok-*",          pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
+  { pattern: "jev-*",           pricing: { input: 0.042, output: 0.00 } },
 ];
 
 /**

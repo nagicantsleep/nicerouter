@@ -138,6 +138,7 @@ import pWusRouter from "./wusrouter.js";
 import pFreebuff from "./freebuff.js";
 import pOpencodeZen from "./opencode-zen.js";
 import pTinyfish from "./tinyfish.js";
+import pTypesafe from "./typesafe.js";
 export default [
   p0,
   p1,
@@ -276,4 +277,5 @@ export default [
   pFreebuff,
   pOpencodeZen,
   pTinyfish,
+  pTypesafe,
 ];
