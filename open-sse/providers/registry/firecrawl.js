@@ -30,5 +30,9 @@ export default {
     ],
     maxCharacters: 200000,
     timeoutMs: 30000
-  }
+  },
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

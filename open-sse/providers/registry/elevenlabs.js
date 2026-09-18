@@ -31,5 +31,9 @@ export default {
         name: "Eleven Turbo v2.5"
       }
     ]
-  }
+  },
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

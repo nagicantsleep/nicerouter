@@ -22,6 +22,7 @@ export default {
   category: "apikey",
   features: {
     usage: true,
+    usageApikey: true,
   },
   thinkingConfig: {
     options: [

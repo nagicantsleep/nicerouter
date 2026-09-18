@@ -61,4 +61,8 @@ export default {
   },
   modelsFetcher: { url: "https://api.tokenrouter.com/v1/models", type: "openai" },
   passthroughModels: true,
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

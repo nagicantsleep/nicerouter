@@ -28,4 +28,8 @@ export default {
   ],
   serviceKinds: ["image"],
   imageConfig: { baseUrl: "https://api.stability.ai/v2beta/stable-image/generate" },
+  features: {
+    usage: true,
+    usageApikey: true,
+  },
 };

@@ -32,6 +32,11 @@ import {
   getVyceAiUsage,
   getOpenAIBillingUsage,
 } from "./usage/customProviders.js";
+import { getOpenRouterUsage } from "./usage/openrouter.js";
+import { getStabilityUsage } from "./usage/stability.js";
+import { getFirecrawlUsage } from "./usage/firecrawl.js";
+import { getTavilyUsage } from "./usage/tavily.js";
+import { getElevenLabsUsage } from "./usage/elevenlabs.js";
 
 /**
  * Get usage data for a provider connection
@@ -75,6 +80,13 @@ const USAGE_HANDLERS = {
   agentrouter: (c) => getOpenAIBillingUsage("AgentRouter", "https://agentrouter.org/v1", c.apiKey, c.proxyOptions),
   ramclouds: (c) => getOpenAIBillingUsage("Ramclouds", "https://ramclouds.me/v1", c.apiKey, c.proxyOptions),
   orca: (c) => getOpenAIBillingUsage("OrcaRouter", "https://api.orcarouter.ai/v1", c.apiKey, c.proxyOptions),
+  openrouter: (c) => getOpenRouterUsage(c.apiKey, c.proxyOptions),
+  "stability-ai": (c) => getStabilityUsage(c.apiKey, c.proxyOptions),
+  firecrawl: (c) => getFirecrawlUsage(c.apiKey, c.proxyOptions),
+  tavily: (c) => getTavilyUsage(c.apiKey, c.proxyOptions),
+  tokenrouter: (c) => getOpenAIBillingUsage("TokenRouter", "https://api.tokenrouter.com", c.apiKey, c.proxyOptions),
+  wusrouter: (c) => getOpenAIBillingUsage("WusRouter", "https://api.wusrouter.com/v1", c.apiKey, c.proxyOptions),
+  elevenlabs: (c) => getElevenLabsUsage(c.apiKey, c.proxyOptions),
 };
 
 export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {
