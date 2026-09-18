@@ -93,6 +93,33 @@ export function isCodexFreeAccount(connection) {
   return name.includes("free");
 }
 
+// ─── In-memory rate-limit tracking for proxy pools on no-auth providers ─────────────
+const proxyRateLimits = new Map(); // `${providerId}:${proxyId}` -> expiresAt timestamp
+
+export function recordProxyRateLimit(provider, proxyId, cooldownMs = 60000) {
+  if (!provider || !proxyId) return;
+  const key = `${provider}:${proxyId}`;
+  const duration = Math.max(cooldownMs, 60000); // at least 1 min cooldown
+  proxyRateLimits.set(key, Date.now() + duration);
+  log.warn("PROXY", `[${provider}] Proxy '${proxyId}' rate limited/failed → cooldown ${Math.round(duration / 1000)}s`);
+}
+
+export function isProxyRateLimited(provider, proxyId) {
+  if (!provider || !proxyId) return false;
+  const key = `${provider}:${proxyId}`;
+  const expiresAt = proxyRateLimits.get(key);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    proxyRateLimits.delete(key);
+    return false;
+  }
+  return true;
+}
+
+export function resetProxyRateLimits() {
+  proxyRateLimits.clear();
+}
+
 /**
  * Get provider credentials from localDb
  * Filters out unavailable accounts and returns the selected account based on strategy
@@ -119,22 +146,74 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     const hasNoAuthFallback = !!FREE_PROVIDERS[providerId]?.noAuth;
 
-    // Helper to build virtual no-auth connection (with optional proxy pool from settings)
+    // Helper to build virtual no-auth connection (with auto proxy pool failover and rotation)
     const getVirtualNoAuthConnection = async () => {
       const settings = await getSettings();
       const override = (settings.providerStrategies || {})[providerId] || {};
       const strategy = override.rotateStrategy || "none";
-      let pickedId = override.proxyPoolId || null;
-      if (strategy !== "none") {
-        const allPools = await getProxyPools({ isActive: true });
-        const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
-        pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+      const allPools = await getProxyPools({ isActive: true });
+      const activePools = allPools.filter(p => p.proxyUrl);
+      const activePoolIds = activePools.map(p => p.id);
+
+      // Build candidate list in prioritized order:
+      let candidates = [];
+      if (strategy !== "none" && activePoolIds.length > 0) {
+        if (strategy === "round-robin") {
+          const picked = pickProxyPoolId(activePoolIds, "round-robin", providerId);
+          candidates = [
+            picked,
+            ...activePoolIds.filter(id => id !== picked),
+            "__direct__"
+          ];
+        } else {
+          // random
+          const shuffled = [...activePoolIds].sort(() => Math.random() - 0.5);
+          candidates = [...shuffled, "__direct__"];
+        }
+      } else if (override.proxyPoolId && override.proxyPoolId !== "__none__") {
+        candidates = [
+          override.proxyPoolId,
+          ...activePoolIds.filter(id => id !== override.proxyPoolId),
+          "__direct__"
+        ];
+      } else {
+        candidates = ["__direct__", ...activePoolIds];
       }
-      const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
+
+      if (excludeSet.has("noauth")) {
+        return null;
+      }
+
+      // Filter candidates that have not been excluded in this retry loop and are not in persistent rate-limit cooldown
+      const availableCandidates = candidates.filter(cand => {
+        if (excludeSet.has(`noauth:${cand}`)) return false;
+        return !isProxyRateLimited(providerId, cand);
+      });
+
+      // If all unexcluded candidates are in persistent cooldown, still attempt the first unexcluded candidate in this loop
+      const pickedCandidate = availableCandidates.length > 0
+        ? availableCandidates[0]
+        : candidates.find(cand => !excludeSet.has(`noauth:${cand}`));
+
+      if (!pickedCandidate) {
+        // All proxy options and direct exhausted for this request
+        return null;
+      }
+
+      const isDirect = pickedCandidate === "__direct__";
+      const poolObj = isDirect ? null : activePools.find(p => p.id === pickedCandidate);
+      const resolvedProxy = isDirect
+        ? { connectionProxyEnabled: false, connectionProxyUrl: "", connectionNoProxy: "", proxyPoolId: null, vercelRelayUrl: "" }
+        : await resolveConnectionProxyConfig({ proxyPoolId: pickedCandidate });
+
+      const poolLabel = isDirect ? "Direct" : (poolObj?.name || pickedCandidate.slice(0, 8));
+      const connSuffix = (isDirect && activePoolIds.length === 0 && !override.proxyPoolId) ? "" : `:${pickedCandidate}`;
+      const connId = `noauth${connSuffix}`;
+
       return {
-        id: "noauth",
-        connectionId: "noauth",
-        connectionName: "Public",
+        id: connId,
+        connectionId: connId,
+        connectionName: `Public (${poolLabel})`,
         isActive: true,
         accessToken: "public",
         providerSpecificData: {
@@ -149,10 +228,13 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     // If provider supports no-auth free pool (e.g. OpenCode), prioritize public Free Pool first
     // unless a specific user connection is explicitly requested, or "noauth" was already tried/excluded
-    const isFreePoolPreferred = hasNoAuthFallback && (!preferredConnectionId || preferredConnectionId === "noauth");
+    const isFreePoolPreferred = hasNoAuthFallback && (!preferredConnectionId || preferredConnectionId === "noauth" || preferredConnectionId.startsWith("noauth:"));
     if (isFreePoolPreferred && !excludeSet.has("noauth")) {
-      log.debug("AUTH", `${provider} | Prioritizing public free pool before user key pool`);
-      return await getVirtualNoAuthConnection();
+      const virtualConn = await getVirtualNoAuthConnection();
+      if (virtualConn) {
+        log.debug("AUTH", `${provider} | Prioritizing public free pool before user key pool (${virtualConn.connectionName})`);
+        return virtualConn;
+      }
     }
 
     const connections = await getProviderConnections({ provider: providerId, isActive: true });
@@ -160,7 +242,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     if (connections.length === 0) {
       if (hasNoAuthFallback && !excludeSet.has("noauth")) {
-        return await getVirtualNoAuthConnection();
+        const virtualConn = await getVirtualNoAuthConnection();
+        if (virtualConn) return virtualConn;
       }
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;
@@ -220,7 +303,8 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       // fall back to public no-auth pool if not already excluded in this retry loop
       if (hasNoAuthFallback && !excludeSet.has("noauth")) {
         log.info("AUTH", `${provider} | all ${connections.length} accounts unavailable — falling back to public no-auth pool`);
-        return await getVirtualNoAuthConnection();
+        const virtualConn = await getVirtualNoAuthConnection();
+        if (virtualConn) return virtualConn;
       }
 
       // Find earliest persistent lock or lazy Antigravity quota-cache reset for retry timing.
@@ -353,8 +437,12 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId) return { shouldFallback: false, cooldownMs: 0 };
-  if (connectionId === "noauth") {
+  if (connectionId === "noauth" || connectionId.startsWith("noauth:")) {
     const { shouldFallback, cooldownMs } = checkFallbackError(status, errorText, 0);
+    const proxyId = connectionId.includes(":") ? connectionId.slice("noauth:".length) : null;
+    if (provider && proxyId) {
+      recordProxyRateLimit(provider, proxyId, cooldownMs);
+    }
     return { shouldFallback, cooldownMs };
   }
   const connections = await getProviderConnections({ provider });
@@ -431,7 +519,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  * @param {string|null} model - model that succeeded
  */
 export async function clearAccountError(connectionId, currentConnection, model = null) {
-  if (!connectionId || connectionId === "noauth") return;
+  if (!connectionId || connectionId === "noauth" || connectionId.startsWith("noauth:")) return;
   const conn = currentConnection._connection || currentConnection;
   const now = Date.now();
   const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
