@@ -129,9 +129,12 @@ export class OpenCodeExecutor extends BaseExecutor {
     const downstreamUa = lower["user-agent"] || "";
     const useDownstreamUa = isAcceptableDownstreamUserAgent(downstreamUa);
 
+    const token = credentials?.apiKey || (credentials?.accessToken && credentials.accessToken !== "public" ? credentials.accessToken : null);
+    const authHeader = token ? `Bearer ${token}` : "Bearer public";
+
     return {
       "Content-Type": "application/json",
-      "Authorization": "Bearer public",
+      "Authorization": authHeader,
       "User-Agent": useDownstreamUa ? downstreamUa : OPENCODE_USER_AGENT,
       "x-opencode-client": lower["x-opencode-client"] || "cli",
       "x-opencode-session": lower["x-opencode-session"] || this._currentSessionId || generateSessionId(),

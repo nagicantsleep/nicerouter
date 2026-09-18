@@ -596,6 +596,24 @@ export async function POST(request) {
           break;
         }
 
+        case "opencode": {
+          try {
+            const probeRes = await fetch("https://opencode.ai/zen/v1/models", {
+              headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "x-opencode-client": "cli",
+              },
+              signal: AbortSignal.timeout(8000),
+            });
+            isValid = probeRes.status !== 401 && probeRes.status !== 403;
+            if (!isValid) error = `OpenCode authentication failed (${probeRes.status})`;
+          } catch (err) {
+            isValid = false;
+            error = err.message;
+          }
+          break;
+        }
+
         default: {
           // Generic probe for OpenAI-compatible providers (config-driven from PROVIDERS)
           const cfg = PROVIDERS[provider];

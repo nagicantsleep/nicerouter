@@ -9,8 +9,14 @@ export default {
     icon: "terminal",
     color: "#E87040",
     textIcon: "OC",
+    website: "https://opencode.ai/zen",
+    notice: {
+      text: "Free tier with public pool or personal OpenCode Zen accounts. Adding Zen API keys enables multi-account rotation to avoid rate limits.",
+      apiKeyUrl: "https://opencode.ai/zen",
+    },
   },
   category: "free",
+  authModes: ["apikey"],
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",

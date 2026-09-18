@@ -176,9 +176,9 @@ export default function ProviderDetailPage() {
       }
     : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]);
   const authModes = providerInfo?.authModes || [];
-  const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
+  const isOAuth = !!OAUTH_PROVIDERS[providerId] || (!!FREE_PROVIDERS[providerId] && !authModes.includes("apikey")) || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
-  const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
+  const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth && !authModes.includes("apikey");
   const staticModels = getModelsByProviderId(providerId);
   const models = providerId === "cursor" && liveModels.length > 0
     ? liveModels
@@ -1532,7 +1532,11 @@ export default function ProviderDetailPage() {
                   <span className="material-symbols-outlined text-[18px]">{isOAuth ? "lock" : "key"}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-text-muted">No connections yet</p>
+                  <p className="text-sm text-text-muted">
+                    {providerId === "opencode"
+                      ? "Running in public anonymous pool (Bearer public). Add OpenCode Zen API keys to enable multi-account rotation and prevent rate limits."
+                      : "No connections yet"}
+                  </p>
                   {hasDualAuthModes && (
                     <p className="text-xs text-text-muted">
                       Choose {oauthConnectionLabel} or {apiKeyConnectionLabel}.

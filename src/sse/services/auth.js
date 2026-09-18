@@ -117,8 +117,10 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
     const providerId = resolveProviderId(provider);
 
-    // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
-    if (FREE_PROVIDERS[providerId]?.noAuth) {
+    const hasNoAuthFallback = !!FREE_PROVIDERS[providerId]?.noAuth;
+
+    // Helper to build virtual no-auth connection (with optional proxy pool from settings)
+    const getVirtualNoAuthConnection = async () => {
       const settings = await getSettings();
       const override = (settings.providerStrategies || {})[providerId] || {};
       const strategy = override.rotateStrategy || "none";
@@ -142,12 +144,15 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
           vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
         },
       };
-    }
+    };
 
     const connections = await getProviderConnections({ provider: providerId, isActive: true });
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
+      if (hasNoAuthFallback) {
+        return await getVirtualNoAuthConnection();
+      }
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;
     }
@@ -202,6 +207,13 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     });
 
     if (availableConnections.length === 0) {
+      // If all accounts are rate-limited or excluded, and this provider supports no-auth fallback,
+      // fall back to public no-auth pool if not already excluded in this retry loop
+      if (hasNoAuthFallback && !excludeSet.has("noauth")) {
+        log.info("AUTH", `${provider} | all ${connections.length} accounts unavailable — falling back to public no-auth pool`);
+        return await getVirtualNoAuthConnection();
+      }
+
       // Find earliest persistent lock or lazy Antigravity quota-cache reset for retry timing.
       const lockedConns = connections.filter(c => isModelLockActive(c, model));
       const expiries = lockedConns.map(c => getEarliestModelLockUntil(c)).filter(Boolean);
