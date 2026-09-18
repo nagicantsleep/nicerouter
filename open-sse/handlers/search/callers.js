@@ -422,6 +422,36 @@ function buildGlmSearchRequest(config, params) {
   };
 }
 
+// ── TinyFish Search ─────────────────────────────────────────────────────
+// GET https://api.search.tinyfish.ai?query={query}
+// Headers: X-API-Key: {token}
+// Response: { query, results: [{ position, site_name, title, snippet, url, date? }], total_results }
+function buildTinyfishRequest(config, params) {
+  const apiKey = params.token;
+  if (!apiKey) throw new Error("TinyFish requires an API key");
+
+  const qp = new URLSearchParams({
+    query: params.query,
+  });
+  if (params.country) qp.set("location", params.country);
+  if (params.language) qp.set("language", params.language);
+
+  const { includes, excludes } = parseDomainFilter(params.domainFilter);
+  if (includes.length) qp.set("include_domains", includes.join(","));
+  if (excludes.length) qp.set("exclude_domains", excludes.join(","));
+
+  return {
+    url: `${resolveBaseUrl(config, params)}?${qp}`,
+    init: {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-API-Key": apiKey,
+      },
+    },
+  };
+}
+
 // ── Dispatcher ──────────────────────────────────────────────────────────
 
 const BUILDERS = {
@@ -438,6 +468,7 @@ const BUILDERS = {
   "xquik": buildXquikRequest,
   "ollama-search": buildOllamaSearchRequest,
   "glm": buildGlmSearchRequest,
+  "tinyfish": buildTinyfishRequest,
 };
 
 /**

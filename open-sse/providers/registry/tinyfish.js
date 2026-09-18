@@ -1,0 +1,52 @@
+export default {
+  id: "tinyfish",
+  alias: "tinyfish",
+  display: {
+    name: "TinyFish",
+    icon: "travel_explore",
+    color: "#06B6D4",
+    textIcon: "TF",
+    website: "https://tinyfish.ai",
+    notice: {
+      text: "Free web search & content extraction for AI agents (100% free tier, $0 balance supported).",
+      apiKeyUrl: "https://agent.tinyfish.ai",
+    },
+  },
+  category: "apikey",
+  authType: "apikey",
+  serviceKinds: [
+    "webSearch",
+    "webFetch",
+  ],
+  searchConfig: {
+    baseUrl: "https://api.search.tinyfish.ai",
+    validateUrl: "https://api.search.tinyfish.ai?query=ping",
+    method: "GET",
+    authType: "apikey",
+    authHeader: "x-api-key",
+    costPerQuery: 0,
+    freeMonthlyQuota: 999999,
+    searchTypes: [
+      "web",
+    ],
+    defaultMaxResults: 10,
+    maxMaxResults: 50,
+    timeoutMs: 15000,
+    cacheTTLMs: 300000,
+  },
+  fetchConfig: {
+    baseUrl: "https://api.fetch.tinyfish.ai",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "x-api-key",
+    costPerQuery: 0,
+    freeMonthlyQuota: 999999,
+    formats: [
+      "markdown",
+      "text",
+      "html",
+    ],
+    maxCharacters: 100000,
+    timeoutMs: 15000,
+  },
+};

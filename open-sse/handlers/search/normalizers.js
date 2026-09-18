@@ -282,6 +282,21 @@ function normalizeGlmSearch(data, _query, _searchType) {
   return { results, totalResults: results.length };
 }
 
+function normalizeTinyfish(data, _query, _searchType) {
+  const now = new Date().toISOString();
+  const items = data.results;
+  if (!Array.isArray(items)) return { results: [], totalResults: null };
+  const results = items.map((item, idx) =>
+    makeResult("tinyfish", {
+      title: item.title,
+      url: item.url,
+      snippet: item.snippet,
+      published_at: item.date || null,
+    }, idx, now)
+  );
+  return { results, totalResults: typeof data.total_results === "number" ? data.total_results : results.length };
+}
+
 const NORMALIZERS = {
   "serper": normalizeSerper,
   "brave-search": normalizeBrave,
@@ -296,6 +311,7 @@ const NORMALIZERS = {
   "xquik": normalizeXquik,
   "ollama-search": normalizeOllamaSearch,
   "glm": normalizeGlmSearch,
+  "tinyfish": normalizeTinyfish,
 };
 
 /**

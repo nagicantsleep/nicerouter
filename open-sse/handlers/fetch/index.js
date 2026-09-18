@@ -129,6 +129,9 @@ export async function handleFetchCore({ url, format, maxCharacters, provider, pr
         baseUrl: providerConfig?.baseUrl,
       });
     }
+    if (provider === "tinyfish") {
+      return await runTinyfish({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt });
+    }
     return { success: false, status: 400, error: `Unsupported provider: ${provider}` };
   } catch (err) {
     log?.("fetch handler error:", err?.message || err);
@@ -305,6 +308,37 @@ async function runOllama({
       costUsd: costPerQuery,
       responseMs: Date.now() - startedAt,
       upstreamMs
+    })
+  };
+}
+
+async function runTinyfish({ url, fmt, timeoutMs, apiKey, maxCharacters, costPerQuery, startedAt }) {
+  const upstreamStart = Date.now();
+  const r = await tryFetch("https://api.fetch.tinyfish.ai", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(apiKey ? { "x-api-key": apiKey } : {})
+    },
+    body: JSON.stringify({ urls: [url], format: fmt })
+  }, timeoutMs);
+
+  if (!r.ok) {
+    return { success: false, status: r.timeout ? 504 : 502, error: r.error };
+  }
+  const upstreamMs = Date.now() - upstreamStart;
+  const { json } = await readJsonOrText(r.res);
+  if (!r.res.ok) {
+    return { success: false, status: r.res.status, error: json?.error?.message || json?.error || `TinyFish error: ${r.res.status}` };
+  }
+  const first = json?.results?.[0] || {};
+  const text = truncate(first.text || first.description || "", maxCharacters);
+  const title = first.title || null;
+  return {
+    success: true,
+    data: buildData({
+      provider: "tinyfish", url: first.final_url || url, title, format: fmt, text,
+      costUsd: costPerQuery, responseMs: Date.now() - startedAt, upstreamMs
     })
   };
 }
