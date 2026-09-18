@@ -20,8 +20,12 @@ export default {
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",
+    // Upstream free-tier gate rejects stream:false with 403 FreeTierError
+    // (verified live). Force SSE upstream; chatCore converts back to JSON
+    // for non-streaming clients via the existing forced-SSE path.
+    forceStream: true,
     headers: {
-      "x-opencode-client": "cli",
+      "x-opencode-client": "desktop",
     },
     noAuth: true,
   },

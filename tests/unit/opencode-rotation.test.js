@@ -57,8 +57,8 @@ describe("OpenCode Free Account Rotation & Auth Support", () => {
         rawHeaders: { "user-agent": "custom-agent/1.0" },
       });
       expect(headers["Content-Type"]).toBe("application/json");
-      expect(headers["x-opencode-client"]).toBe("cli");
-      expect(headers["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{26}$/);
+      expect(headers["x-opencode-client"]).toBe("desktop");
+      expect(headers["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
       expect(headers["x-opencode-request"]).toMatch(/^msg_/);
       expect(headers["x-opencode-project"]).toBe("global");
     });

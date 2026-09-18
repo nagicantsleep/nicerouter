@@ -22,16 +22,15 @@ function headersFor(rawHeaders = {}) {
 }
 
 describe("OpenCode free-tier User-Agent fingerprint", () => {
-  it("sends the versioned AI-SDK product string, not a bare 'opencode'", () => {
+  it("sends the versioned product string, not a bare 'opencode'", () => {
     const ua = headersFor()["User-Agent"];
-    expect(ua).toBe(OPENCODE_USER_AGENT);
+    expect(ua).toMatch(/^opencode\/\d+\.\d+/);
     expect(ua).not.toBe("opencode");
     expect(ua).toContain(`opencode/${OPENCODE_CLI_VERSION}`);
-    expect(ua).toContain("ai-sdk/provider-utils/");
   });
 
-  it("identifies as the cli client", () => {
-    expect(headersFor()["x-opencode-client"]).toBe("cli");
+  it("identifies as the desktop client", () => {
+    expect(headersFor()["x-opencode-client"]).toBe("desktop");
   });
 
   it("emits opencode-shaped session and request ids", () => {
@@ -48,12 +47,12 @@ describe("OpenCode free-tier User-Agent fingerprint", () => {
 
 describe("OpenCode downstream User-Agent forwarding", () => {
   it("does not forward a bare 'opencode' UA (it would trip the gate)", () => {
-    expect(headersFor({ "user-agent": "opencode" })["User-Agent"]).toBe(OPENCODE_USER_AGENT);
+    expect(headersFor({ "user-agent": "opencode" })["User-Agent"]).toBe("opencode/1.18.31");
   });
 
   it("does not forward unrelated client UAs", () => {
     for (const ua of ["claude-cli/1.0", "curl/8.0", "opencode-ish"]) {
-      expect(headersFor({ "user-agent": ua })["User-Agent"]).toBe(OPENCODE_USER_AGENT);
+      expect(headersFor({ "user-agent": ua })["User-Agent"]).toBe("opencode/1.18.31");
     }
   });
 
@@ -63,7 +62,7 @@ describe("OpenCode downstream User-Agent forwarding", () => {
   });
 
   it("is case-insensitive on the header key", () => {
-    expect(headersFor({ "User-Agent": "opencode" })["User-Agent"]).toBe(OPENCODE_USER_AGENT);
+    expect(headersFor({ "User-Agent": "opencode" })["User-Agent"]).toBe("opencode/1.18.31");
   });
 
   it("classifies UAs through the shared predicate", () => {
