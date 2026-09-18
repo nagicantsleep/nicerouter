@@ -178,7 +178,8 @@ export default function ProviderDetailPage() {
   const authModes = providerInfo?.authModes || [];
   const isOAuth = !!OAUTH_PROVIDERS[providerId] || (!!FREE_PROVIDERS[providerId] && !authModes.includes("apikey")) || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
-  const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth && !authModes.includes("apikey");
+  const hasNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
+  const isFreeNoAuth = hasNoAuth && !supportsApiKeyAuth;
   const staticModels = getModelsByProviderId(providerId);
   const models = providerId === "cursor" && liveModels.length > 0
     ? liveModels
@@ -1449,10 +1450,21 @@ export default function ProviderDetailPage() {
         </Card>
       )}
 
+      {/* Public Free Pool Proxy */}
+      {hasNoAuth && (
+        <NoAuthProxyCard
+          providerId={providerId}
+          title={supportsApiKeyAuth ? "Public Free Pool Proxy" : undefined}
+          description={
+            supportsApiKeyAuth
+              ? "Optionally route requests using the public free pool (Bearer public) through a proxy pool to bypass IP limits. Personal API keys manage proxies separately in Connections below."
+              : undefined
+          }
+        />
+      )}
+
       {/* Connections */}
-      {isFreeNoAuth ? (
-        <NoAuthProxyCard providerId={providerId} />
-      ) : (
+      {!isFreeNoAuth && (
         <Card>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Connections</h2>
