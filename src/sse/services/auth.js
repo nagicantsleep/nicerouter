@@ -133,6 +133,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
       return {
         id: "noauth",
+        connectionId: "noauth",
         connectionName: "Public",
         isActive: true,
         accessToken: "public",
@@ -146,11 +147,19 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
       };
     };
 
+    // If provider supports no-auth free pool (e.g. OpenCode), prioritize public Free Pool first
+    // unless a specific user connection is explicitly requested, or "noauth" was already tried/excluded
+    const isFreePoolPreferred = hasNoAuthFallback && (!preferredConnectionId || preferredConnectionId === "noauth");
+    if (isFreePoolPreferred && !excludeSet.has("noauth")) {
+      log.debug("AUTH", `${provider} | Prioritizing public free pool before user key pool`);
+      return await getVirtualNoAuthConnection();
+    }
+
     const connections = await getProviderConnections({ provider: providerId, isActive: true });
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
-      if (hasNoAuthFallback) {
+      if (hasNoAuthFallback && !excludeSet.has("noauth")) {
         return await getVirtualNoAuthConnection();
       }
       log.warn("AUTH", `No credentials for ${provider}`);
@@ -343,7 +352,11 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  * @returns {{ shouldFallback: boolean, cooldownMs: number }}
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
-  if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
+  if (!connectionId) return { shouldFallback: false, cooldownMs: 0 };
+  if (connectionId === "noauth") {
+    const { shouldFallback, cooldownMs } = checkFallbackError(status, errorText, 0);
+    return { shouldFallback, cooldownMs };
+  }
   const connections = await getProviderConnections({ provider });
   const conn = connections.find(c => c.id === connectionId);
   const backoffLevel = conn?.backoffLevel || 0;
