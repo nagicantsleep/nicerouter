@@ -476,7 +476,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
   const isAccountWide = !!githubResetAtMs || !!dailyQuotaResetAtMs;
-  const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
+  const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
   const lockUpdate = buildModelLockUpdate(isAccountWide ? null : model, cooldownMs);
 
   const updateData = {
