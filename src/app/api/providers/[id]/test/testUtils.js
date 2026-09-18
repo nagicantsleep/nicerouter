@@ -858,6 +858,42 @@ case "llm7": {
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
+      case "seekai": {
+        const res = await fetchWithConnectionProxy("https://seekai.cc/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}`, "User-Agent": "Cline/3.0.0" },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "agentrouter": {
+        const res = await fetchWithConnectionProxy("https://agentrouter.org/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}`, "User-Agent": "Cline/3.0.0" },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "ramclouds": {
+        const res = await fetchWithConnectionProxy("https://ramclouds.me/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "vyceai": {
+        const res = await fetchWithConnectionProxy("https://vyceai.com/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "kiraai": {
+        const res = await fetchWithConnectionProxy("https://kiraai.vn/api/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "amd": {
+        const res = await fetchWithConnectionProxy("https://developer.amd.com.cn/radeon/api/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
       default:
         return { valid: false, error: "Provider test not supported" };
     }

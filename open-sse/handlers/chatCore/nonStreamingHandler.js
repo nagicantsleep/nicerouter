@@ -28,7 +28,7 @@ function openAICompletionToClaudeMessage(responseBody) {
   const message = choice.message || {};
   const content = [];
 
-  const reasoning = message.reasoning_content || message.provider_specific_fields?.reasoning_content || "";
+  const reasoning = message.reasoning_content || message.reasoning || message.provider_specific_fields?.reasoning_content || "";
   if (reasoning) {
     content.push({ type: "thinking", thinking: reasoning });
   }
@@ -394,11 +394,16 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
   }
 
-  // Strip reasoning_content only when content is non-empty.
+  // Normalize reasoning to reasoning_content if needed, then strip reasoning_content only when content is non-empty.
   // When content is empty (e.g. thinking models that used all tokens for reasoning),
   // reasoning_content is the only useful output and must be preserved.
   if (!isClaudeMessageResponse && !isResponsesResponse && translatedResponse?.choices) {
     for (const choice of translatedResponse.choices) {
+      if (choice?.message) {
+        if (!choice.message.reasoning_content && typeof choice.message.reasoning === "string") {
+          choice.message.reasoning_content = choice.message.reasoning;
+        }
+      }
       if (choice?.message?.reasoning_content && choice.message.content) {
         delete choice.message.reasoning_content;
       }
@@ -417,7 +422,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     providerResponse: responseBody || null,
     response: {
       content: translatedResponse?.choices?.[0]?.message?.content || translatedResponse?.content || null,
-      thinking: translatedResponse?.choices?.[0]?.message?.reasoning_content || translatedResponse?.reasoning_content || null,
+      thinking: translatedResponse?.choices?.[0]?.message?.reasoning_content || translatedResponse?.choices?.[0]?.message?.reasoning || translatedResponse?.reasoning_content || null,
       finish_reason: translatedResponse?.choices?.[0]?.finish_reason || "unknown"
     },
     pxpipe,

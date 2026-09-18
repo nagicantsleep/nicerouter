@@ -175,6 +175,10 @@ export function createSSEStream(options = {}) {
                     delete choice.delta.tool_calls;
                     fieldsInjected = true;
                   }
+                  if (choice.delta && !choice.delta.reasoning_content && typeof choice.delta.reasoning === "string") {
+                    choice.delta.reasoning_content = choice.delta.reasoning;
+                    fieldsInjected = true;
+                  }
                 }
               }
 
@@ -184,7 +188,7 @@ export function createSSEStream(options = {}) {
 
               const delta = parsed.choices?.[0]?.delta;
               const content = delta?.content;
-              const reasoning = delta?.reasoning_content;
+              const reasoning = delta?.reasoning_content || delta?.reasoning;
               if (content && typeof content === "string") {
                 totalContentLength += content.length;
                 accumulatedContent += content;
@@ -296,9 +300,10 @@ export function createSSEStream(options = {}) {
           accumulatedContent += parsed.choices[0].delta.content;
         }
         // OpenAI format - reasoning
-        if (parsed.choices?.[0]?.delta?.reasoning_content) {
-          totalContentLength += parsed.choices[0].delta.reasoning_content.length;
-          accumulatedThinking += parsed.choices[0].delta.reasoning_content;
+        const openaiReasoning = parsed.choices?.[0]?.delta?.reasoning_content || parsed.choices?.[0]?.delta?.reasoning;
+        if (openaiReasoning) {
+          totalContentLength += openaiReasoning.length;
+          accumulatedThinking += openaiReasoning;
         }
         
         // Gemini format
