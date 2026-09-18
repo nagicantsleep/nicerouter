@@ -345,7 +345,20 @@ export default function ProvidersPage() {
       if (ca !== cb) return ca - cb;
       return (a.name || "").localeCompare(b.name || "");
     });
-  // API Key: connected providers first, then alphabetical by name
+  // Helper to determine priority tier for API Key providers:
+  // Tier 1: Có key AND đang active (has key, active)
+  // Tier 2: Có key AND không active (has key, inactive/disabled)
+  // Tier 3: Không key, không active (no key)
+  const getApikeyTier = (key) => {
+    const stats = getProviderStats(key, "apikey");
+    const hasKey = stats.total > 0;
+    const isActive = hasKey && !stats.allDisabled;
+    if (hasKey && isActive) return 1;
+    if (hasKey && !isActive) return 2;
+    return 3;
+  };
+
+  // API Key: ưu tiên có key & active > có key & inactive > không key, không active
   const apikeyEntries = Object.entries(APIKEY_PROVIDERS)
     .filter(
       ([key, info]) =>
@@ -355,17 +368,32 @@ export default function ProvidersPage() {
         matchStatus(getProviderStats(key, "apikey"), info.noAuth),
     )
     .sort(([ka, a], [kb, b]) => {
-      const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
-      const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
-      if (ca !== cb) return ca - cb;
+      const tierA = getApikeyTier(ka);
+      const tierB = getApikeyTier(kb);
+      if (tierA !== tierB) return tierA - tierB;
+
+      const sa = getProviderStats(ka, "apikey");
+      const sb = getProviderStats(kb, "apikey");
+      const ca = sa.connected > 0 ? 1 : 0;
+      const cb = sb.connected > 0 ? 1 : 0;
+      if (ca !== cb) return cb - ca;
+
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
+      if (pa !== pb) return pa - pb;
+
       return (a.name || "").localeCompare(b.name || "");
     });
+
   const isApikeySearching = !!searchQuery.trim() || statusFilter !== "all";
+  // Collapse/expand: luôn ưu tiên hiển thị tất cả các provider có key và đang active
+  const activeKeyCount = apikeyEntries.filter(([k]) => getApikeyTier(k) === 1).length;
+  const initialLimit = Math.max(activeKeyCount, APIKEY_INITIAL_VISIBLE);
   const visibleApikeyEntries =
     isApikeySearching || showAllApikey
       ? apikeyEntries
-      : apikeyEntries.slice(0, APIKEY_INITIAL_VISIBLE);
-  const hiddenApikeyCount = apikeyEntries.length - APIKEY_INITIAL_VISIBLE;
+      : apikeyEntries.slice(0, initialLimit);
+  const hiddenApikeyCount = Math.max(0, apikeyEntries.length - initialLimit);
 
   if (loading) {
     return (
@@ -412,57 +440,59 @@ export default function ProvidersPage() {
         </div>
       )}
 
-      {/* Custom Providers (OpenAI/Anthropic Compatible) — dynamic */}
+      {/* API Key Providers — fixed list */}
+      {apikeyEntries.length > 0 && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Custom Providers (OpenAI/Anthropic Compatible){" "}
+            API Key Providers{" "}
           </h2>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
-            <Button
-              size="sm"
-              icon="add"
-              onClick={() => setShowAddAnthropicCompatibleModal(true)}
-              className="w-full sm:w-auto"
+          <button
+            onClick={() => handleBatchTest("apikey")}
+            disabled={!!testingMode}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+              testingMode === "apikey"
+                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
+                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+            }`}
+            title="Test all API Key connections"
+            aria-label="Test all API Key connections"
+          >
+            <span
+              className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
             >
-              Add Anthropic Compatible
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              icon="add"
-              onClick={() => setShowAddCompatibleModal(true)}
-              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
-            >
-              Add OpenAI Compatible
-            </Button>
-          </div>
+              play_arrow
+            </span>
+            {testingMode === "apikey" ? "Testing..." : "Test All"}
+          </button>
         </div>
-        {compatibleProviders.length === 0 &&
-        anthropicCompatibleProviders.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
-            <span className="material-symbols-outlined text-[18px]">extension</span>
-            <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {[...compatibleProviders, ...anthropicCompatibleProviders].map(
-              (info) => (
-                <ApiKeyProviderCard
-                  key={info.id}
-                  providerId={info.id}
-                  provider={info}
-                  stats={getProviderStats(info.id, "apikey")}
-                  authType="compatible"
-                  onToggle={(active) =>
-                    handleToggleProvider(info.id, "apikey", active)
-                  }
-                />
-              ),
-            )}
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {visibleApikeyEntries.map(([key, info]) => (
+            <ApiKeyProviderCard
+              key={key}
+              providerId={key}
+              provider={info}
+              stats={getProviderStats(key, "apikey")}
+              authType="apikey"
+              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+            />
+          ))}
+        </div>
+        {!isApikeySearching && hiddenApikeyCount > 0 && (
+          <button
+            onClick={() => setShowAllApikey(!showAllApikey)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {showAllApikey ? "expand_less" : "expand_more"}
+            </span>
+            {showAllApikey
+              ? "Show fewer providers"
+              : `Show all ${apikeyEntries.length} providers`}
+          </button>
         )}
       </div>
+      )}
 
       {/* OAuth Providers */}
       {oauthEntries.length > 0 && (
@@ -572,55 +602,58 @@ export default function ProvidersPage() {
       </div>
       )}
 
-      {/* API Key Providers — fixed list */}
-      {apikeyEntries.length > 0 && (
+      {/* Custom Providers (OpenAI/Anthropic Compatible) — dynamic */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            API Key Providers{" "}
+            Custom Providers (OpenAI/Anthropic Compatible){" "}
           </h2>
-          <button
-            onClick={() => handleBatchTest("apikey")}
-            disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "apikey"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-            }`}
-            title="Test all API Key connections"
-            aria-label="Test all API Key connections"
-          >
-            <span
-              className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
+            <Button
+              size="sm"
+              icon="add"
+              onClick={() => setShowAddAnthropicCompatibleModal(true)}
+              className="w-full sm:w-auto"
             >
-              play_arrow
-            </span>
-            {testingMode === "apikey" ? "Testing..." : "Test All"}
-          </button>
+              Add Anthropic Compatible
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="add"
+              onClick={() => setShowAddCompatibleModal(true)}
+              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
+            >
+              Add OpenAI Compatible
+            </Button>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleApikeyEntries.map(([key, info]) => (
-            <ApiKeyProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "apikey")}
-              authType="apikey"
-              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
-            />
-          ))}
-        </div>
-        {!isApikeySearching && !showAllApikey && hiddenApikeyCount > 0 && (
-          <button
-            onClick={() => setShowAllApikey(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
-          >
-            <span className="material-symbols-outlined text-[16px]">expand_more</span>
-            Show all {apikeyEntries.length} providers
-          </button>
+        {compatibleProviders.length === 0 &&
+        anthropicCompatibleProviders.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
+            <span className="material-symbols-outlined text-[18px]">extension</span>
+            <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {[...compatibleProviders, ...anthropicCompatibleProviders].map(
+              (info) => (
+                <ApiKeyProviderCard
+                  key={info.id}
+                  providerId={info.id}
+                  provider={info}
+                  stats={getProviderStats(info.id, "apikey")}
+                  authType="compatible"
+                  onToggle={(active) =>
+                    handleToggleProvider(info.id, "apikey", active)
+                  }
+                />
+              ),
+            )}
+          </div>
         )}
       </div>
-      )}
+
 
       {/* Web Cookie Providers — use browser subscription cookie instead of API key */}
       {/* <div className="flex flex-col gap-4">
