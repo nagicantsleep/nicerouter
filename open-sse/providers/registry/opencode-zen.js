@@ -1,0 +1,56 @@
+export default {
+  id: "opencode-zen",
+  priority: 215,
+  alias: "zen",
+  aliases: [
+    "ocz",
+    "opencode-zen",
+  ],
+  uiAlias: "zen",
+  display: {
+    name: "OpenCode Zen",
+    icon: "terminal",
+    color: "#E87040",
+    textIcon: "ZEN",
+    website: "https://opencode.ai/zen",
+    notice: {
+      text: "OpenCode Zen API key access. Supports 70+ models including Claude, GPT, Gemini, and DeepSeek with multi-account rotation.",
+      apiKeyUrl: "https://opencode.ai/zen",
+    },
+  },
+  category: "apikey",
+  authModes: ["apikey"],
+  transport: {
+    baseUrl: "https://opencode.ai",
+    forceStream: true,
+    headers: {
+      "x-opencode-client": "desktop",
+    },
+  },
+  models: [
+    // Muse Spark models use /zen/v1/responses
+    { id: "muse-spark-1.2", name: "Muse Spark 1.2", targetFormat: "openai-responses" },
+    { id: "muse-spark-1.3", name: "Muse Spark 1.3", targetFormat: "openai-responses" },
+    // Popular models available on OpenCode Zen
+    { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", targetFormat: "openai" },
+    { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", targetFormat: "openai" },
+    { id: "claude-sonnet-5", name: "Claude Sonnet 5", targetFormat: "openai" },
+    { id: "claude-opus-4-5", name: "Claude Opus 4.5", targetFormat: "openai" },
+    { id: "claude-opus-4-6", name: "Claude Opus 4.6", targetFormat: "openai" },
+    { id: "claude-opus-4-7", name: "Claude Opus 4.7", targetFormat: "openai" },
+    { id: "claude-opus-5", name: "Claude Opus 5", targetFormat: "openai" },
+    { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", targetFormat: "openai" },
+    { id: "gpt-5", name: "GPT-5", targetFormat: "openai" },
+    { id: "gpt-5.1", name: "GPT-5.1", targetFormat: "openai" },
+    { id: "gpt-5.2", name: "GPT-5.2", targetFormat: "openai" },
+    { id: "gpt-5.4", name: "GPT-5.4", targetFormat: "openai" },
+    { id: "gpt-5.5", name: "GPT-5.5", targetFormat: "openai" },
+    { id: "gpt-5.6-sol", name: "GPT-5.6 Sol", targetFormat: "openai" },
+    { id: "gemini-3-flash", name: "Gemini 3 Flash", targetFormat: "openai" },
+    { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash", targetFormat: "openai" },
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", targetFormat: "openai" },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", targetFormat: "openai" },
+  ],
+  modelsFetcher: { url: "https://opencode.ai/zen/v1/models", type: "openai" },
+  passthroughModels: true,
+};

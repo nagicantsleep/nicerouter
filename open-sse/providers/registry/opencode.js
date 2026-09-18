@@ -9,14 +9,12 @@ export default {
     icon: "terminal",
     color: "#E87040",
     textIcon: "OC",
-    website: "https://opencode.ai/zen",
+    website: "https://opencode.ai",
     notice: {
-      text: "Free tier with public pool or personal OpenCode Zen accounts. Adding Zen API keys enables multi-account rotation to avoid rate limits.",
-      apiKeyUrl: "https://opencode.ai/zen",
+      text: "Free tier powered by OpenCode public pool (Bearer public). Route through a proxy pool to avoid IP-based rate limits.",
     },
   },
   category: "free",
-  authModes: ["apikey"],
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",
@@ -34,6 +32,10 @@ export default {
     // /chat/completions, so the format is declared per-model, not per-provider.
     { id: "muse-spark-1.2-contributor-free", name: "Muse Spark 1.2 Contributor Free", targetFormat: "openai-responses" },
     { id: "muse-spark-1.3-contributor-free", name: "Muse Spark 1.3 Contributor Free", targetFormat: "openai-responses" },
+    { id: "mimo-v2.5-free", name: "MiMo V2.5 Free", targetFormat: "openai" },
+    { id: "ling-3.0-flash-fin-free", name: "Ling 3.0 Flash Fin Free", targetFormat: "openai" },
+    { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra Free", targetFormat: "openai" },
+    { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning Free", targetFormat: "openai" },
   ],
   modelsFetcher: { url: "https://opencode.ai/zen/v1/models", type: "opencode-free" },
   passthroughModels: true,

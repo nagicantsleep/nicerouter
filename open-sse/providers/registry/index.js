@@ -136,6 +136,7 @@ import pModelScope from "./modelscope.js";
 import pOneRouter from "./onerouter.js";
 import pWusRouter from "./wusrouter.js";
 import pFreebuff from "./freebuff.js";
+import pOpencodeZen from "./opencode-zen.js";
 export default [
   p0,
   p1,
@@ -272,4 +273,5 @@ export default [
   pOneRouter,
   pWusRouter,
   pFreebuff,
+  pOpencodeZen,
 ];

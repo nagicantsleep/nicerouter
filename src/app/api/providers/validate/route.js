@@ -596,7 +596,8 @@ export async function POST(request) {
           break;
         }
 
-        case "opencode": {
+        case "opencode":
+        case "opencode-zen": {
           try {
             const probeRes = await fetch("https://opencode.ai/zen/v1/models", {
               headers: {

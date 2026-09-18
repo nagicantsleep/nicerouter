@@ -1,23 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import opencodeRegistry from "../../open-sse/providers/registry/opencode.js";
-import { FREE_PROVIDERS } from "@/shared/constants/providers.js";
+import opencodeZenRegistry from "../../open-sse/providers/registry/opencode-zen.js";
+import { FREE_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/providers.js";
 
-describe("OpenCode Free Account Rotation & Auth Support", () => {
-  it("registry configures opencode with apikey authModes and noAuth public fallback", () => {
+describe("OpenCode Free & OpenCode Zen Provider Configurations", () => {
+  it("registry configures opencode as pure free tier with noAuth", () => {
     expect(opencodeRegistry.id).toBe("opencode");
     expect(opencodeRegistry.category).toBe("free");
     expect(opencodeRegistry.hasFree).toBe(true);
     expect(opencodeRegistry.noAuth).toBe(true);
-    expect(opencodeRegistry.authModes).toEqual(["apikey"]);
-    expect(opencodeRegistry.display?.website).toBe("https://opencode.ai/zen");
-    expect(opencodeRegistry.display?.notice?.apiKeyUrl).toBe("https://opencode.ai/zen");
 
-    // Check entry generated in FREE_PROVIDERS
     const freeEntry = FREE_PROVIDERS.opencode;
     expect(freeEntry).toBeDefined();
-    expect(freeEntry.authModes).toEqual(["apikey"]);
     expect(freeEntry.noAuth).toBe(true);
+  });
+
+  it("registry configures opencode-zen as apikey provider", () => {
+    expect(opencodeZenRegistry.id).toBe("opencode-zen");
+    expect(opencodeZenRegistry.category).toBe("apikey");
+    expect(opencodeZenRegistry.alias).toBe("zen");
+    expect(opencodeZenRegistry.uiAlias).toBe("zen");
+    expect(opencodeZenRegistry.aliases).toContain("ocz");
+    expect(opencodeZenRegistry.authModes).toEqual(["apikey"]);
+
+    const zenEntry = APIKEY_PROVIDERS["opencode-zen"];
+    expect(zenEntry).toBeDefined();
+    expect(zenEntry.authModes).toEqual(["apikey"]);
   });
 
   describe("OpenCodeExecutor buildHeaders", () => {
