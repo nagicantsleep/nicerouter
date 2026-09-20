@@ -294,4 +294,64 @@ describe("cline /api/v1/models aggregation (resolveClineModels vs resolveClinepa
     expect(typeof result.models[0].id).toBe("string");
     expect(typeof result.models[0].name).toBe("string");
   });
+
+  it("resolves free and clinePass models from recommended-models endpoint", async () => {
+    const { resolveClineModels, resolveClinepassModels } = await import("../../open-sse/services/clinepassModels.js");
+    const RECOMMENDED_PAYLOAD = {
+      free: [
+        { id: "cline-free/deepseek-v4.1-flash", name: "Deepseek-v4.1-Flash" },
+        { id: "cline-free/muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor" },
+        { id: "z-ai/glm-5.3-flash", name: "glm-5.3-flash" }
+      ],
+      clinePass: [
+        { id: "cline-pass/kimi-k3", name: "cline-pass/kimi-k3" },
+        { id: "cline-pass/deepseek-v4.1-flash", name: "cline-pass/deepseek-v4.1-flash" },
+        { id: "cline-pass/muse-spark-1.3-contributor", name: "cline-pass/muse-spark-1.3-contributor" }
+      ],
+      recommended: [
+        { id: "moonshotai/kimi-k3", name: "kimi-k3" }
+      ]
+    };
+
+    fetchMock.mockImplementation((url) => {
+      if (url.includes("recommended-models")) {
+        return Promise.resolve({ ok: true, json: async () => RECOMMENDED_PAYLOAD });
+      }
+      return Promise.resolve({ ok: true, json: async () => [] });
+    });
+
+    const clineResult = await resolveClineModels({ accessToken: "test-token" });
+    expect(clineResult).not.toBeNull();
+    const clineIds = clineResult.models.map((m) => m.id);
+    expect(clineIds).toContain("cline-free/deepseek-v4.1-flash");
+    expect(clineIds).toContain("cline-free/muse-spark-1.3-contributor");
+    expect(clineIds).toContain("moonshotai/kimi-k3");
+    expect(clineIds).toContain("cline-pass/kimi-k3");
+
+    const passResult = await resolveClinepassModels({ accessToken: "test-token" });
+    expect(passResult).not.toBeNull();
+    const passIds = passResult.models.map((m) => m.id);
+    expect(passIds).toContain("cline-pass/kimi-k3");
+    expect(passIds).toContain("cline-pass/deepseek-v4.1-flash");
+    expect(passIds).toContain("cline-pass/muse-spark-1.3-contributor");
+    expect(passIds).not.toContain("cline-free/deepseek-v4.1-flash");
+  });
+
+  it("static registries for cline and clinepass contain the free and open-weight models", async () => {
+    const { default: clineRegistry } = await import("../../open-sse/providers/registry/cline.js");
+    const { default: clinepassRegistry } = await import("../../open-sse/providers/registry/clinepass.js");
+
+    const clineIds = clineRegistry.models.map((m) => m.id);
+    expect(clineIds).toContain("cline-free/deepseek-v4.1-flash");
+    expect(clineIds).toContain("cline-free/muse-spark-1.3-contributor");
+    expect(clineIds).toContain("moonshotai/kimi-k3");
+    expect(clineIds).toContain("deepseek/deepseek-v4.1-flash");
+    expect(clineIds).toContain("meta/muse-spark-1.3-contributor");
+
+    const passIds = clinepassRegistry.models.map((m) => m.id);
+    expect(passIds).toContain("cline-pass/kimi-k3");
+    expect(passIds).toContain("cline-pass/deepseek-v4.1-flash");
+    expect(passIds).toContain("cline-pass/muse-spark-1.3-contributor");
+  });
 });
+

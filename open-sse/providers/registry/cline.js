@@ -14,7 +14,7 @@ export default {
     },
   },
   category: "oauth",
-  authModes: ["oauth"],
+  authModes: ["oauth", "apikey"],
   hasOAuth: true,
   transport: {
     baseUrl: "https://api.cline.bot/api/v1/chat/completions",
@@ -36,6 +36,14 @@ export default {
     },
   },
   models: [
+    { id: "cline-free/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash (Free)" },
+    { id: "cline-free/muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor (Free)" },
+    { id: "moonshotai/kimi-k3", name: "Kimi K3" },
+    { id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" },
+    { id: "meta/muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor" },
+    { id: "z-ai/glm-5.3-flash", name: "GLM-5.3 Flash (Free)" },
+    { id: "cline-free/solar-pro4", name: "Solar Pro 4 (Free)" },
+    { id: "poolside/laguna-s-2.1:free", name: "Laguna S 2.1 (Free)" },
     { id: "anthropic/claude-opus-4.7", name: "Claude Opus 4.7" },
     { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
     { id: "anthropic/claude-opus-4.6", name: "Claude Opus 4.6" },
