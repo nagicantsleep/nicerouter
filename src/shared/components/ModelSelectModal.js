@@ -8,6 +8,7 @@ import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { matchModelKeywords, sortModelsByRelevance, calculateModelRelevance } from "@/shared/utils/modelSearch";
 
 // Provider order: OAuth first, then Free Tier, then API Key (matches dashboard/providers)
 const PROVIDER_ORDER = [
@@ -426,21 +427,23 @@ export default function ModelSelectModal({
   const filteredCombos = useMemo(() => {
     if (kindFilter || capFilter) return [];
     const activeCombos = combos.filter((c) => c.isActive !== false);
-    if (!searchQuery.trim()) return activeCombos;
-    const query = searchQuery.toLowerCase();
-    return activeCombos.filter(c => c.name.toLowerCase().includes(query));
-  }, [combos, searchQuery, kindFilter, capFilter]);
+    const query = searchQuery.trim();
+    if (!query) return activeCombos;
+    return activeCombos
+      .filter((c) => matchModelKeywords(c.name, query))
+      .sort((a, b) => {
+        const isAddedA = addedModelValues.includes(a.name);
+        const isAddedB = addedModelValues.includes(b.name);
+        const scoreA = calculateModelRelevance(a.name, query, {}, isAddedA);
+        const scoreB = calculateModelRelevance(b.name, query, {}, isAddedB);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return a.name.localeCompare(b.name);
+      });
+  }, [combos, searchQuery, kindFilter, capFilter, addedModelValues]);
 
-  // Sort models alphabetically, with added models floated to top
-  const sortModels = (models) => {
-    const added = models.filter(m => addedModelValues.includes(m.value)).sort((a, b) => a.name.localeCompare(b.name));
-    const rest = models.filter(m => !addedModelValues.includes(m.value)).sort((a, b) => a.name.localeCompare(b.name));
-    return [...added, ...rest];
-  };
-
-  // Filter models by search query
+  // Filter models by search query using smart keyword matching & relevance ranking
   const filteredGroups = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
 
     const filtered = {};
     Object.entries(groupedModels).forEach(([providerId, group]) => {
@@ -450,23 +453,26 @@ export default function ModelSelectModal({
         models = models.filter((m) => getCaps(m.value)?.[capFilter] === true);
         if (models.length === 0) return;
       }
+      const context = { providerName: group.name, providerAlias: group.alias || providerId };
       if (query) {
-        const providerNameMatches = group.name.toLowerCase().includes(query);
-        models = models.filter(
-          (m) =>
-            m.name.toLowerCase().includes(query) ||
-            m.id.toLowerCase().includes(query)
-        );
-        if (models.length === 0 && !providerNameMatches) return;
+        const providerNameMatches =
+          matchModelKeywords(group.name, query) ||
+          matchModelKeywords(group.alias || providerId, query);
+
+        models = models.filter((m) => {
+          if (providerNameMatches) return true;
+          return matchModelKeywords(m, query, context);
+        });
+        if (models.length === 0) return;
       }
       filtered[providerId] = {
         ...group,
-        models: sortModels(models),
+        models: sortModelsByRelevance(models, query, context, addedModelValues),
       };
     });
 
     return filtered;
-  }, [groupedModels, searchQuery, addedModelValues]);
+  }, [groupedModels, searchQuery, capFilter, addedModelValues, getCaps]);
 
   const handleSelect = (model) => {
     const value = model?.value || model?.name || model;

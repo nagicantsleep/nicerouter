@@ -1,0 +1,194 @@
+services:
+  # ========================================================
+  # Pool 10 Node Japan (WireGuard NordVPN) - 10 IPs Riêng Biệt
+  # ========================================================
+
+  # Node 1: Japan (Tokyo - Server #866)
+  nord-jp-1:
+    image: qmcgaw/gluetun:latest
+    container_name: nord-proxy-jp-1
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+      - SERVER_COUNTRIES=Japan
+      - SERVER_HOSTNAMES=jp866.nordvpn.com
+      - HTTPPROXY=on
+      - SHADOWSOCKS=on
+    ports:
+      - "127.0.0.1:38201:8888" # HTTP Proxy JP 1
+      - "127.0.0.1:38301:8388" # Shadowsocks JP 1
+
+  # Node 2: Japan (Tokyo - Server #883)
+  nord-jp-2:
+    image: qmcgaw/gluetun:latest
+    container_name: nord-proxy-jp-2
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+      - SERVER_COUNTRIES=Japan
+      - SERVER_HOSTNAMES=jp883.nordvpn.com
+      - HTTPPROXY=on
+      - SHADOWSOCKS=on
+    ports:
+      - "127.0.0.1:38202:8888" # HTTP Proxy JP 2
+      - "127.0.0.1:38302:8388" # Shadowsocks JP 2
+
+  # Node 3: Japan (Tokyo - Server #846)
+  nord-jp-3:
+    image: qmcgaw/gluetun:latest
+    container_name: nord-proxy-jp-3
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+      - SERVER_COUNTRIES=Japan
+      - SERVER_HOSTNAMES=jp846.nordvpn.com
+      - HTTPPROXY=on
+      - SHADOWSOCKS=on
+    ports:
+      - "127.0.0.1:38203:8888" # HTTP Proxy JP 3
+      - "127.0.0.1:38303:8388" # Shadowsocks JP 3
+
+  # Node 4: Japan (Tokyo - Server #1297)
+  nord-jp-4:
+    image: qmcgaw/gluetun:latest
+    container_name: nord-proxy-jp-4
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+      - SERVER_COUNTRIES=Japan
+      - SERVER_HOSTNAMES=jp1297.nordvpn.com
+      - HTTPPROXY=on
+      - SHADOWSOCKS=on
+    ports:
+      - "127.0.0.1:38204:8888" # HTTP Proxy JP 4
+      - "127.0.0.1:38304:8388" # Shadowsocks JP 4
+
+  # Node 5: Japan (Tokyo - Server #1294)
+  nord-jp-5:
+    image: qmcgaw/gluetun:latest
+    container_name: nord-proxy-jp-5
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=nordvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+      - SERVER_COUNTRIES=Japan
+      - SERVER_HOSTNAMES=jp1294.nordvpn.com
+      - HTTPPROXY=on
+      - SHADOWSOCKS=on
+    ports:
+      - "127.0.0.1:38205:8888" # HTTP Proxy JP 5
+      - "127.0.0.1:38305:8388" # Shadowsocks JP 5
+
+  # # Node 6: Japan (Tokyo - Server #1284)
+  # nord-jp-6:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: nord-proxy-jp-6
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=nordvpn
+  #     - VPN_TYPE=wireguard
+  #     - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+  #     - SERVER_COUNTRIES=Japan
+  #     - SERVER_HOSTNAMES=jp1284.nordvpn.com
+  #     - HTTPPROXY=on
+  #     - SHADOWSOCKS=on
+  #   ports:
+  #     - "127.0.0.1:38206:8888" # HTTP Proxy JP 6
+  #     - "127.0.0.1:38306:8388" # Shadowsocks JP 6
+
+  # # Node 7: Japan (Tokyo - Server #1303)
+  # nord-jp-7:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: nord-proxy-jp-7
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=nordvpn
+  #     - VPN_TYPE=wireguard
+  #     - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+  #     - SERVER_COUNTRIES=Japan
+  #     - SERVER_HOSTNAMES=jp1303.nordvpn.com
+  #     - HTTPPROXY=on
+  #     - SHADOWSOCKS=on
+  #   ports:
+  #     - "127.0.0.1:38207:8888" # HTTP Proxy JP 7
+  #     - "127.0.0.1:38307:8388" # Shadowsocks JP 7
+
+  # # Node 8: Japan (Tokyo - Server #1259)
+  # nord-jp-8:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: nord-proxy-jp-8
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=nordvpn
+  #     - VPN_TYPE=wireguard
+  #     - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+  #     - SERVER_COUNTRIES=Japan
+  #     - SERVER_HOSTNAMES=jp1259.nordvpn.com
+  #     - HTTPPROXY=on
+  #     - SHADOWSOCKS=on
+  #   ports:
+  #     - "127.0.0.1:38208:8888" # HTTP Proxy JP 8
+  #     - "127.0.0.1:38308:8388" # Shadowsocks JP 8
+
+  # # Node 9: Japan (Tokyo - Server #855)
+  # nord-jp-9:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: nord-proxy-jp-9
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=nordvpn
+  #     - VPN_TYPE=wireguard
+  #     - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+  #     - SERVER_COUNTRIES=Japan
+  #     - SERVER_HOSTNAMES=jp855.nordvpn.com
+  #     - HTTPPROXY=on
+  #     - SHADOWSOCKS=on
+  #   ports:
+  #     - "127.0.0.1:38209:8888" # HTTP Proxy JP 9
+  #     - "127.0.0.1:38309:8388" # Shadowsocks JP 9
+
+  # # Node 10: Japan (Tokyo - Server #1181)
+  # nord-jp-10:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: nord-proxy-jp-10
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - NET_ADMIN
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=nordvpn
+  #     - VPN_TYPE=wireguard
+  #     - WIREGUARD_PRIVATE_KEY=${NORDVPN_WIREGUARD_KEY}
+  #     - SERVER_COUNTRIES=Japan
+  #     - SERVER_HOSTNAMES=jp1181.nordvpn.com
+  #     - HTTPPROXY=on
+  #     - SHADOWSOCKS=on
+  #   ports:
+  #     - "127.0.0.1:38210:8888" # HTTP Proxy JP 10
+  #     - "127.0.0.1:38310:8388" # Shadowsocks JP 10

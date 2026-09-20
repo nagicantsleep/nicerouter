@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import Modal from "./Modal";
 import Input from "./Input";
 import { translate } from "@/i18n/runtime";
+import { matchModelKeywords, sortModelsByRelevance } from "@/shared/utils/modelSearch";
 
 const MODEL_FAMILIES = [
   { id: "all", label: "All", regex: null },
@@ -101,25 +102,29 @@ export default function LiveModelFetchModal({
   // Filter models by family and search query
   const filteredModels = useMemo(() => {
     const familyObj = MODEL_FAMILIES.find((f) => f.id === selectedFamily);
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
 
-    return liveModels.filter((model) => {
-      const modelId = String(model.id || "").toLowerCase();
-      const modelName = String(model.name || "").toLowerCase();
+    const matched = liveModels.filter((model) => {
+      const modelId = String(model.id || "");
+      const modelName = String(model.name || "");
 
       // Family regex filter
       if (familyObj?.regex && !familyObj.regex.test(modelId) && !familyObj.regex.test(modelName)) {
         return false;
       }
 
-      // Search query filter
-      if (query && !modelId.includes(query) && !modelName.includes(query)) {
+      // Search query filter using smart keyword matching
+      if (query && !matchModelKeywords(model, query, { providerAlias, providerId })) {
         return false;
       }
 
       return true;
     });
-  }, [liveModels, selectedFamily, searchQuery]);
+
+    if (!query) return matched;
+
+    return sortModelsByRelevance(matched, query, { providerAlias, providerId });
+  }, [liveModels, selectedFamily, searchQuery, providerAlias, providerId]);
 
   // Detect which filtered models are available to add (not already present)
   const availableFilteredModels = useMemo(() => {
