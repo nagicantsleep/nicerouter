@@ -232,8 +232,22 @@ export async function executeComboTrace({ combo, prompt = "Say hello in 1 word",
     }
 
     // Resolve connections
-    const conns = await resolveConnections(item.provider);
-    const activeConns = conns.filter((c) => c.isActive !== false);
+    let conns = await resolveConnections(item.provider);
+    let activeConns = conns.filter((c) => c.isActive !== false);
+
+    if (activeConns.length === 0) {
+      const resolvedId = resolveProviderAlias(item.provider) || item.provider;
+      if (isNoAuthProvider(item.provider) || isNoAuthProvider(resolvedId)) {
+        activeConns = [
+          {
+            id: "virtual-noauth",
+            provider: resolvedId,
+            name: "Public Free Pool",
+            isActive: true,
+          },
+        ];
+      }
+    }
 
     if (activeConns.length === 0) {
       const errorMsg = `No active connections configured for provider "${item.provider}"`;
