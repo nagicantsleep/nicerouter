@@ -3,7 +3,7 @@ export default {
   alias: "dv",
   aliases: ["devin"],
   uiAlias: "dv",
-  hidden: true,
+  hasFree: true,
   display: {
     name: "Devin CLI",
     icon: "smart_toy",
@@ -12,18 +12,20 @@ export default {
     website: "https://devin.ai",
     notice: {
       signupUrl: "https://cli.devin.ai",
-      text: "Install: `curl -fsSL https://cli.devin.ai/install.sh | bash` (macOS: `brew install --cask devin-cli`, Windows PowerShell: `irm https://static.devin.ai/cli/setup.ps1 | iex`). Then run `devin auth login`. No API key needed.",
+      text: "Install: `curl -fsSL https://cli.devin.ai/install.sh | bash` (macOS: `brew install --cask devin-cli`, Windows PowerShell: `irm https://static.devin.ai/cli/setup.ps1 | iex`). Run `devin auth login` for single account. To rotate multiple accounts, add connections with profile names (e.g. `profile: acc1`), tokens, or credentials path.",
     },
   },
   category: "free",
   authType: "none",
   noAuth: true,
-  authModes: ["none"],
+  authModes: ["none", "apikey"],
   transport: {
     baseUrl: "devin://acp/stdio",
     format: "openai",
   },
   models: [
+    { id: "swe-2", name: "SWE-2" },
+    { id: "swe-2-fast", name: "SWE-2 Fast" },
     { id: "swe-1.6-fast", name: "SWE-1.6 Fast" },
     { id: "swe-1.6", name: "SWE-1.6" },
     { id: "swe-1.5-fast", name: "SWE-1.5 Fast" },

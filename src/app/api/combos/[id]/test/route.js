@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getComboById, getProviderConnections, getSettings, getApiKeys, getProviderNodes } from "../../../../../lib/localDb";
-import { resolveProviderAlias } from "../../../../../../open-sse/services/model.js";
+import { resolveProviderAlias, isNoAuthProvider } from "../../../../../../open-sse/services/model.js";
 import { getConsistentMachineId } from "../../../../../shared/utils/machineId";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
@@ -100,6 +100,22 @@ async function resolveConnections(providerPrefix) {
         conns = await getProviderConnections({ provider: matchedNode.id });
         if (conns && conns.length > 0) return conns;
       }
+    }
+  } catch {}
+
+  // 4. Check if provider is noAuth (e.g. opencode/oc, mimo-free/mmf, devin-cli)
+  // These providers use public pools or local CLIs without requiring saved credentials in DB.
+  try {
+    const resolvedId = resolveProviderAlias(providerPrefix) || providerPrefix;
+    if (isNoAuthProvider(providerPrefix) || isNoAuthProvider(resolvedId)) {
+      return [
+        {
+          id: "virtual-noauth",
+          provider: resolvedId,
+          name: "Public Free Pool",
+          isActive: true,
+        },
+      ];
     }
   } catch {}
 

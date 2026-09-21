@@ -14,6 +14,8 @@ import {
   coerceResponsesOutput,
 } from "../translator/formats/responsesApi.js";
 
+import { OPENCODE_FREE_TIER_ERROR_MESSAGE } from "../config/errorConfig.js";
+
 const OPENCODE_UA = "opencode/1.18.31";
 const MAX_SESSION_LENGTH = 256;
 const MAX_TOOL_NAME_LEN = 128;
@@ -21,7 +23,6 @@ const SESSION_HEADER = "x-opencode-session";
 const SESSION_FIELD = "_opencodeSession";
 const REQ_FIELD = "_opencodeRequest";
 const OPENCODE_FREE_TIER_ERROR = "FreeTierError";
-const OPENCODE_FREE_TIER_ERROR_MESSAGE = "OpenCode's free tier can only be used from within OpenCode";
 export const OPENCODE_SESSION_RE = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 export const OPENCODE_REQUEST_RE = /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";

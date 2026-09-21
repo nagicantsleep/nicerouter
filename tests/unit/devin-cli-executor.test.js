@@ -434,4 +434,66 @@ describe("DevinCliExecutor ACP session/new", () => {
     expect(fs.readFileSync(scriptPath, "utf8")).toContain("clientTools");
     expect(fs.readFileSync(scriptPath, "utf8")).toContain("DEVIN_MCP_TOOLS");
   });
+
+  it("passes --profile argument when credentials profile is specified", async () => {
+    const child = makeFakeChild();
+    spawnMock.mockImplementation((bin, args, opts) => {
+      child.args = args;
+      child.opts = opts;
+      return child;
+    });
+    const exec = new DevinCliExecutor();
+    const { response } = await exec.execute({
+      model: "swe-1.6",
+      body: { messages: [{ role: "user", content: "hello" }] },
+      credentials: {
+        providerSpecificData: { profile: "account-work" },
+      },
+      log: { info() {}, debug() {} },
+    });
+    const reader = response.body.getReader();
+    await reader.read();
+    expect(child.args).toContain("--profile");
+    expect(child.args).toContain("account-work");
+  });
+
+  it("isolates credentials.toml into temporary directory when apiKey is provided", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const child = makeFakeChild();
+    let capturedCredFileExists = false;
+    let capturedCredContent = "";
+    spawnMock.mockImplementation((bin, args, opts) => {
+      child.args = args;
+      child.opts = opts;
+      const xdg = opts.env.XDG_DATA_HOME;
+      if (xdg) {
+        const file = path.join(xdg, "devin", "credentials.toml");
+        if (fs.existsSync(file)) {
+          capturedCredFileExists = true;
+          capturedCredContent = fs.readFileSync(file, "utf8");
+        }
+      }
+      return child;
+    });
+    const exec = new DevinCliExecutor();
+    const { response } = await exec.execute({
+      model: "swe-1.6",
+      body: { messages: [{ role: "user", content: "hi" }] },
+      credentials: { apiKey: "token_acc2_secret" },
+      log: { info() {}, debug() {} },
+    });
+    const customXdg = child.opts.env.XDG_DATA_HOME;
+    expect(customXdg).toBeTruthy();
+    expect(capturedCredFileExists).toBe(true);
+    expect(capturedCredContent).toContain("token_acc2_secret");
+
+    // After response finishes / stream ends, verify temp dir is cleaned up
+    const reader = response.body.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+    expect(fs.existsSync(customXdg)).toBe(false);
+  });
 });

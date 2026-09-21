@@ -112,7 +112,7 @@ describe("Combo Test & Fallback Trace", () => {
               id: "conn-amd-1",
               name: "AMD Acc 1",
               isActive: true,
-              modelLock___all: "2026-09-16T00:00:00.000Z",
+              modelLock___all: new Date(Date.now() + 86400000).toISOString(),
               lastError: "Daily usage limit exceeded",
               errorCode: 429,
             },
@@ -368,6 +368,58 @@ describe("Combo Test & Fallback Trace", () => {
       expect(text).toContain('"type":"step_complete"');
       expect(text).toContain('"type":"complete"');
       expect(text).toContain("Streaming Hello");
+    });
+
+    it("successfully tests noAuth provider models (e.g. oc/nemotron-3-ultra-free) without requiring DB connections", async () => {
+      const mockCombo = {
+        id: "combo-opencode-free",
+        name: "OpenCode Free Test",
+        models: ["oc/nemotron-3-ultra-free"],
+      };
+
+      vi.mocked(localDb.getComboById).mockResolvedValueOnce(mockCombo);
+      vi.mocked(localDb.getSettings).mockResolvedValueOnce({});
+      vi.mocked(localDb.getApiKeys).mockResolvedValueOnce([{ key: "sk-test", isActive: true }]);
+      // No connection records in DB for oc or opencode
+      vi.mocked(localDb.getProviderConnections).mockResolvedValue([]);
+
+      global.fetch = vi.fn().mockImplementation(async (url, options) => {
+        const body = JSON.parse(options.body);
+        if (body.model === "oc/nemotron-3-ultra-free") {
+          return {
+            ok: true,
+            status: 200,
+            text: async () =>
+              JSON.stringify({
+                choices: [{ message: { content: "Hello from Nemotron Free!" } }],
+                usage: { prompt_tokens: 5, completion_tokens: 6, total_tokens: 11 },
+              }),
+          };
+        }
+        return { ok: false, status: 500, text: async () => "error" };
+      });
+
+      const req = new Request("http://localhost/api/combos/combo-opencode-free/test", {
+        method: "POST",
+        body: JSON.stringify({ prompt: "ping" }),
+      });
+
+      const res = await POST(req, { params: Promise.resolve({ id: "combo-opencode-free" }) });
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.overallStatus).toBe("success");
+      expect(data.winningModel).toBe("oc/nemotron-3-ultra-free");
+      expect(data.winningStep).toBe(1);
+      expect(data.winningOutput).toBe("Hello from Nemotron Free!");
+      expect(data.steps[0]).toMatchObject({
+        step: 1,
+        model: "oc/nemotron-3-ultra-free",
+        provider: "oc",
+        ok: true,
+        skipped: false,
+        nextAction: "served",
+      });
     });
   });
 });

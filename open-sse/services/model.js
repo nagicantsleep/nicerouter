@@ -23,11 +23,23 @@ const BUILTIN_MODEL_ALIASES = {
   "copilot-auto": "github/auto",
 };
 
+const NO_AUTH_PROVIDERS = new Set(
+  REGISTRY.filter((r) => r.noAuth).map((r) => r.id)
+);
+
 /**
  * Resolve provider alias to provider ID
  */
 export function resolveProviderAlias(aliasOrId) {
   return ALIAS_TO_PROVIDER_ID[aliasOrId] || aliasOrId;
+}
+
+/**
+ * Check if a provider alias or ID is a noAuth provider
+ */
+export function isNoAuthProvider(aliasOrId) {
+  const providerId = resolveProviderAlias(aliasOrId);
+  return NO_AUTH_PROVIDERS.has(providerId);
 }
 
 /**

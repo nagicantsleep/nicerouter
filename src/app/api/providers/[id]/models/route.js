@@ -408,6 +408,19 @@ const PROVIDER_MODELS_CONFIG = {
         }));
     },
   },
+  "opencode-zen": {
+    url: "https://opencode.ai/zen/v1/models",
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Cline/3.0.0",
+      "x-opencode-client": "desktop",
+    },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: parseOpenAIStyleModels,
+  },
   "opencode-go": {
     url: "https://opencode.ai/zen/go/v1/models",
     method: "GET",

@@ -408,6 +408,57 @@ export class DevinCliExecutor extends BaseExecutor {
         env.DEVIN_PERMISSION_MODE = process.env.DEVIN_PERMISSION_MODE || "bypass";
         if (mcpConfigDir) env.XDG_CONFIG_HOME = mcpConfigDir;
 
+        // Multi-account / credentials isolation per connection
+        let credentialsConfigDir = null;
+        const cleanupCredentials = () => {
+          if (!credentialsConfigDir) return;
+          try {
+            fs.rmSync(credentialsConfigDir, { recursive: true, force: true });
+          } catch {
+            /* ignore */
+          }
+          credentialsConfigDir = null;
+        };
+
+        const psd = credentials?.providerSpecificData || {};
+        const profile = typeof psd.profile === "string" ? psd.profile.trim() : null;
+        const customDataDir = typeof psd.dataDir === "string" ? psd.dataDir.trim() : null;
+        const credsPath = typeof psd.credentialsPath === "string" ? psd.credentialsPath.trim() : null;
+        const rawApiKey = typeof credentials?.apiKey === "string" ? credentials.apiKey.trim() : "";
+        const rawToken = typeof credentials?.accessToken === "string" ? credentials.accessToken.trim() : "";
+        const rawCreds = psd.credentialsToml || psd.credentials || (rawApiKey && rawApiKey !== "public" ? rawApiKey : rawToken);
+
+        if (customDataDir && fs.existsSync(customDataDir)) {
+          env.XDG_DATA_HOME = customDataDir;
+          if (process.platform === "win32") env.APPDATA = customDataDir;
+        } else if (credsPath && fs.existsSync(credsPath)) {
+          try {
+            credentialsConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "devin-auth-"));
+            const targetDir = path.join(credentialsConfigDir, "devin");
+            fs.mkdirSync(targetDir, { recursive: true });
+            fs.copyFileSync(credsPath, path.join(targetDir, "credentials.toml"));
+            env.XDG_DATA_HOME = credentialsConfigDir;
+            if (process.platform === "win32") env.APPDATA = credentialsConfigDir;
+          } catch (e) {
+            log?.info?.("DEVIN", `credentialsPath setup failed: ${e.message}`);
+          }
+        } else if (rawCreds && !profile) {
+          try {
+            credentialsConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "devin-auth-"));
+            const targetDir = path.join(credentialsConfigDir, "devin");
+            fs.mkdirSync(targetDir, { recursive: true });
+            const tomlText = rawCreds.includes("=")
+              ? rawCreds
+              : `token = "${rawCreds}"\n`;
+            fs.writeFileSync(path.join(targetDir, "credentials.toml"), tomlText, "utf8");
+            env.XDG_DATA_HOME = credentialsConfigDir;
+            if (process.platform === "win32") env.APPDATA = credentialsConfigDir;
+            if (!rawCreds.includes("=")) env.DEVIN_API_KEY = rawCreds;
+          } catch (e) {
+            log?.info?.("DEVIN", `credentials setup failed: ${e.message}`);
+          }
+        }
+
         // Agent type: default (omitted) = full agent with built-in tools
         // (fs/shell/search) so the model can actually perform tasks. Override to
         // `summarizer` (no tools, text-only) via CLI_DEVIN_AGENT_TYPE for a safer,
@@ -415,6 +466,7 @@ export class DevinCliExecutor extends BaseExecutor {
         // modify the filesystem on the host running 9router — only expose locally.
         const agentType = process.env.CLI_DEVIN_AGENT_TYPE?.trim();
         const acpArgs = ["acp"];
+        if (profile) acpArgs.push("--profile", profile);
         if (agentType) acpArgs.push("--agent-type", agentType);
 
         // Spawn in the client workspace cwd (from <cwd> env context) so built-in
@@ -432,6 +484,8 @@ export class DevinCliExecutor extends BaseExecutor {
         let stdinClosed = false;
 
         child.on("error", (err) => {
+          cleanupMcp();
+          cleanupCredentials();
           spawnError = err;
           const msg =
             err.message.includes("ENOENT") || err.message.includes("not found")
@@ -549,6 +603,8 @@ export class DevinCliExecutor extends BaseExecutor {
         const finish = (error, finishReason = "stop") => {
           if (finished) return;
           finished = true;
+          cleanupMcp();
+          cleanupCredentials();
 
           if (error) {
             emit(
@@ -783,6 +839,7 @@ export class DevinCliExecutor extends BaseExecutor {
             }
           } else {
             cleanupMcp();
+            cleanupCredentials();
           }
         });
 

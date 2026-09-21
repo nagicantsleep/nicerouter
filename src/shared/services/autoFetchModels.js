@@ -16,6 +16,7 @@ export const PRUNE_TARGET_PROVIDERS = [
   { id: "poolside", freeOnly: true },
   { id: "nvidia", freeOnly: false },
   { id: "opencode", freeOnly: true },
+  { id: "opencode-zen", freeOnly: false },
   { id: "opencode-go", freeOnly: false },
   { id: "cloudflare-ai", freeOnly: false },
   { id: "api-airforce", freeOnly: true },
