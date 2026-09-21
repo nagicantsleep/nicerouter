@@ -331,7 +331,7 @@ export async function executeComboTrace({ combo, prompt = "Say hello in 1 word",
         body: JSON.stringify({
           model: item.modelStr,
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 50,
+          max_tokens: 1024,
           stream: false,
         }),
       });
