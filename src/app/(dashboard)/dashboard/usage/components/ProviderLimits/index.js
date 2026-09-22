@@ -36,9 +36,13 @@ import {
   CONNECTIONS_PAGE_SIZE,
   ACCOUNT_PAGE_SIZE_OPTIONS,
   ACCOUNT_PAGE_SIZE_MAX,
+  PROVIDER_GROUP_PAGE_SIZE,
+  PROVIDER_GROUP_PAGE_SIZE_OPTIONS,
+  GROUP_ITEMS_PAGE_SIZE,
   ACCOUNT_FILTER_OPTIONS,
   QUOTA_SORT_OPTIONS,
   groupConnectionsByProvider,
+  getGroupPaginationSummary,
 } from "./utils";
 import Card from "@/shared/components/Card";
 import { ConfirmModal, EditConnectionModal } from "@/shared/components";
@@ -159,16 +163,20 @@ export default function ProviderLimits() {
   const [expiringFirst, setExpiringFirst] = useState(false);
   const [groupByProvider, setGroupByProvider] = useState(true);
   const [collapsedProviders, setCollapsedProviders] = useState({});
+  const [groupItemPages, setGroupItemPages] = useState({});
+  const [expandedGroupAll, setExpandedGroupAll] = useState({});
   const [providerMenuOpen, setProviderMenuOpen] = useState(false);
   const [bulkToggling, setBulkToggling] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(CONNECTIONS_PAGE_SIZE);
+  const [accountPageSize, setAccountPageSize] = useState(CONNECTIONS_PAGE_SIZE);
+  const [groupPageSize, setGroupPageSize] = useState(PROVIDER_GROUP_PAGE_SIZE);
+  const pageSize = groupByProvider ? groupPageSize : accountPageSize;
   const [customPageSizeInput, setCustomPageSizeInput] = useState(
-    String(CONNECTIONS_PAGE_SIZE),
+    String(PROVIDER_GROUP_PAGE_SIZE),
   );
   const [pagination, setPagination] = useState({
     page: 1,
-    pageSize: CONNECTIONS_PAGE_SIZE,
+    pageSize: PROVIDER_GROUP_PAGE_SIZE,
     total: 0,
     totalPages: 1,
   });
@@ -190,6 +198,10 @@ export default function ProviderLimits() {
           accountStatus: accountFilter,
           sort: "priority",
         });
+
+        if (groupByProvider) {
+          params.set("groupBy", "provider");
+        }
 
         if (providerFilter !== "all") {
           params.set("provider", providerFilter);
@@ -220,7 +232,7 @@ export default function ProviderLimits() {
         return [];
       }
     },
-    [accountFilter, expiringFirst, page, pageSize, providerFilter],
+    [accountFilter, expiringFirst, groupByProvider, page, pageSize, providerFilter],
   );
 
   // Fetch quota for a specific connection
@@ -742,8 +754,13 @@ export default function ProviderLimits() {
   );
 
   const toggleGroupByProvider = useCallback(() => {
-    setGroupByProvider((prev) => !prev);
-  }, []);
+    setGroupByProvider((prev) => {
+      const next = !prev;
+      setPage(1);
+      setCustomPageSizeInput(String(next ? groupPageSize : accountPageSize));
+      return next;
+    });
+  }, [accountPageSize, groupPageSize]);
 
   const toggleCollapseProvider = useCallback((provider) => {
     setCollapsedProviders((prev) => ({
@@ -809,9 +826,17 @@ export default function ProviderLimits() {
     providerFilter,
     accountFilter,
   );
-  const connectionsPageSummary = getConnectionsPaginationSummary(pagination);
-  const isCustomPageSize = !ACCOUNT_PAGE_SIZE_OPTIONS.includes(pageSize);
-  const pageSizeLabel = getPageSizeLabel(pageSize, isCustomPageSize);
+  const activePageSizeOptions = groupByProvider
+    ? PROVIDER_GROUP_PAGE_SIZE_OPTIONS
+    : ACCOUNT_PAGE_SIZE_OPTIONS;
+  const isCustomPageSize = !activePageSizeOptions.includes(pageSize);
+  const pageSizeLabel = getPageSizeLabel(pageSize, isCustomPageSize, groupByProvider);
+  const connectionsPageSummary = groupByProvider
+    ? getGroupPaginationSummary(
+        pagination,
+        totals.providerFilteredConnections || pagination.totalConnections,
+      )
+    : getConnectionsPaginationSummary(pagination);
 
   if (!connectionsLoading && !hasEligibleConnections) {
     return (
@@ -1379,6 +1404,21 @@ export default function ProviderLimits() {
               (c) => (c.isActive ?? true) && isConnectionDepleted(c),
             ).length;
 
+            const isPagingEnabled =
+              items.length > GROUP_ITEMS_PAGE_SIZE && !expandedGroupAll[provider];
+            const currentSubPage = groupItemPages[provider] || 1;
+            const totalSubPages = Math.ceil(items.length / GROUP_ITEMS_PAGE_SIZE);
+            const safeSubPage = Math.min(
+              Math.max(1, currentSubPage),
+              totalSubPages,
+            );
+            const displayedItems = isPagingEnabled
+              ? items.slice(
+                  (safeSubPage - 1) * GROUP_ITEMS_PAGE_SIZE,
+                  safeSubPage * GROUP_ITEMS_PAGE_SIZE,
+                )
+              : items;
+
             return (
               <div
                 key={provider}
@@ -1424,7 +1464,89 @@ export default function ProviderLimits() {
                   </div>
 
                   {/* Provider Group Actions */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {items.length > GROUP_ITEMS_PAGE_SIZE && (
+                      <div className="flex items-center gap-1 rounded-lg border border-black/10 bg-surface px-2 py-0.5 text-[11px] text-text-muted dark:border-white/10">
+                        {expandedGroupAll[provider] ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedGroupAll((prev) => ({
+                                ...prev,
+                                [provider]: false,
+                              }))
+                            }
+                            className="font-medium hover:text-text-primary"
+                            title="Switch to paged view"
+                          >
+                            Paged ({GROUP_ITEMS_PAGE_SIZE}/p)
+                          </button>
+                        ) : (
+                          <>
+                            <span>
+                              {(safeSubPage - 1) * GROUP_ITEMS_PAGE_SIZE + 1}-
+                              {Math.min(
+                                items.length,
+                                safeSubPage * GROUP_ITEMS_PAGE_SIZE,
+                              )}{" "}
+                              of {items.length}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={safeSubPage <= 1}
+                              onClick={() =>
+                                setGroupItemPages((prev) => ({
+                                  ...prev,
+                                  [provider]: Math.max(1, safeSubPage - 1),
+                                }))
+                              }
+                              className="flex h-5 w-5 items-center justify-center rounded hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/5"
+                              aria-label={`Previous accounts for ${providerLabel(provider)}`}
+                            >
+                              <span className="material-symbols-outlined text-[13px]">
+                                chevron_left
+                              </span>
+                            </button>
+                            <span className="font-mono">
+                              {safeSubPage}/{totalSubPages}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={safeSubPage >= totalSubPages}
+                              onClick={() =>
+                                setGroupItemPages((prev) => ({
+                                  ...prev,
+                                  [provider]: Math.min(
+                                    totalSubPages,
+                                    safeSubPage + 1,
+                                  ),
+                                }))
+                              }
+                              className="flex h-5 w-5 items-center justify-center rounded hover:bg-black/5 disabled:opacity-30 dark:hover:bg-white/5"
+                              aria-label={`Next accounts for ${providerLabel(provider)}`}
+                            >
+                              <span className="material-symbols-outlined text-[13px]">
+                                chevron_right
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedGroupAll((prev) => ({
+                                  ...prev,
+                                  [provider]: true,
+                                }))
+                              }
+                              className="ml-1 border-l border-black/10 pl-1.5 font-medium hover:text-text-primary dark:border-white/10"
+                              title="Show all accounts in this provider"
+                            >
+                              All
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {depletedCount > 0 && (
                       <button
                         type="button"
@@ -1463,7 +1585,7 @@ export default function ProviderLimits() {
                 {/* Provider Group Cards Grid */}
                 {!isCollapsed && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    {items.map(renderConnectionCard)}
+                    {displayedItems.map(renderConnectionCard)}
                   </div>
                 )}
               </div>
@@ -1488,16 +1610,20 @@ export default function ProviderLimits() {
                   const nextPageSize = Number.parseInt(nextValue, 10);
                   if (Number.isFinite(nextPageSize)) {
                     setPage(1);
-                    setPageSize(nextPageSize);
+                    if (groupByProvider) {
+                      setGroupPageSize(nextPageSize);
+                    } else {
+                      setAccountPageSize(nextPageSize);
+                    }
                     setCustomPageSizeInput(String(nextPageSize));
                   }
                 }}
                 className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-                aria-label="Accounts per page"
+                aria-label={groupByProvider ? "Providers per page" : "Accounts per page"}
               >
-                {ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => (
+                {activePageSizeOptions.map((option) => (
                   <option key={option} value={String(option)}>
-                    {option} / page
+                    {option} {groupByProvider ? "providers" : "accounts"} / page
                   </option>
                 ))}
                 <option value="custom">Custom</option>
@@ -1517,7 +1643,11 @@ export default function ProviderLimits() {
                   }
                   const nextPageSize = Math.min(ACCOUNT_PAGE_SIZE_MAX, Math.max(1, parsedValue));
                   setPage(1);
-                  setPageSize(nextPageSize);
+                  if (groupByProvider) {
+                    setGroupPageSize(nextPageSize);
+                  } else {
+                    setAccountPageSize(nextPageSize);
+                  }
                   setCustomPageSizeInput(String(nextPageSize));
                 }}
                 onKeyDown={(event) => {
@@ -1529,11 +1659,15 @@ export default function ProviderLimits() {
                   }
                   const nextPageSize = Math.min(ACCOUNT_PAGE_SIZE_MAX, Math.max(1, parsedValue));
                   setPage(1);
-                  setPageSize(nextPageSize);
+                  if (groupByProvider) {
+                    setGroupPageSize(nextPageSize);
+                  } else {
+                    setAccountPageSize(nextPageSize);
+                  }
                   setCustomPageSizeInput(String(nextPageSize));
                 }}
                 className="h-8 w-20 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-                aria-label="Custom accounts per page"
+                aria-label={groupByProvider ? "Custom providers per page" : "Custom accounts per page"}
                 placeholder="Custom"
               />
               <span className="text-xs text-text-muted">Page {pagination.page} / {pagination.totalPages}</span>
@@ -1558,7 +1692,7 @@ export default function ProviderLimits() {
                   pagination.page <= 1 || connectionsLoading || refreshingAll
                 }
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
-                aria-label="Previous accounts page"
+                aria-label={groupByProvider ? "Previous providers page" : "Previous accounts page"}
               >
                 <span className="material-symbols-outlined text-[16px]">
                   chevron_left
@@ -1577,7 +1711,7 @@ export default function ProviderLimits() {
                   refreshingAll
                 }
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
-                aria-label="Next accounts page"
+                aria-label={groupByProvider ? "Next providers page" : "Next accounts page"}
               >
                 <span className="material-symbols-outlined text-[16px]">
                   chevron_right

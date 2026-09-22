@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   filterQuotasByVisibility,
   getHiddenQuotaRows,
+  getGroupPaginationSummary,
+  getPageSizeLabel,
   groupConnectionsByProvider,
   parseQuotaData,
   trimHiddenQuotaKeys,
@@ -109,6 +111,46 @@ describe("provider quota visibility", () => {
 
     it("returns an empty array when given an empty list", () => {
       expect(groupConnectionsByProvider([])).toEqual([]);
+    });
+  });
+
+  describe("getGroupPaginationSummary", () => {
+    it("formats group pagination summary with total connections count", () => {
+      const summary = getGroupPaginationSummary(
+        { page: 1, pageSize: 5, total: 12 },
+        30,
+      );
+      expect(summary).toBe("Showing 1-5 of 12 provider groups (30 accounts)");
+    });
+
+    it("formats group pagination summary on the last page correctly", () => {
+      const summary = getGroupPaginationSummary(
+        { page: 3, pageSize: 5, total: 12 },
+        30,
+      );
+      expect(summary).toBe("Showing 11-12 of 12 provider groups (30 accounts)");
+    });
+
+    it("handles zero total groups", () => {
+      const summary = getGroupPaginationSummary(
+        { page: 1, pageSize: 5, total: 0 },
+        0,
+      );
+      expect(summary).toBe("No provider groups");
+    });
+  });
+
+  describe("getPageSizeLabel", () => {
+    it("returns accounts unit when isGrouped is false", () => {
+      expect(getPageSizeLabel(20, false, false)).toBe("20 accounts / page");
+    });
+
+    it("returns providers unit when isGrouped is true", () => {
+      expect(getPageSizeLabel(5, false, true)).toBe("5 providers / page");
+    });
+
+    it("returns Custom label when isCustomPageSize is true", () => {
+      expect(getPageSizeLabel(7, true, true)).toBe("Custom: 7 / page");
     });
   });
 });

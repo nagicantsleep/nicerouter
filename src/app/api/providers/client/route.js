@@ -82,6 +82,7 @@ export async function GET(request) {
     const provider = searchParams.get("provider") || "all";
     const accountStatus = searchParams.get("accountStatus") || "all";
     const sort = searchParams.get("sort") || "priority";
+    const groupBy = searchParams.get("groupBy") || "";
     const page = parsePositiveInt(searchParams.get("page"), 1);
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
@@ -98,6 +99,62 @@ export async function GET(request) {
       if (accountStatus === "inactive") return !(conn.isActive ?? true);
       return true;
     });
+
+    if (groupBy === "provider") {
+      // Collect unique providers present in accountFilteredConnections
+      // Preserve order by USAGE_SUPPORTED_PROVIDERS first, then any others alphabetically
+      const availableProviders = [];
+      const seenProviders = new Set();
+      for (const p of USAGE_SUPPORTED_PROVIDERS) {
+        if (accountFilteredConnections.some((c) => c.provider === p)) {
+          availableProviders.push(p);
+          seenProviders.add(p);
+        }
+      }
+      const remainingProviders = Array.from(
+        new Set(accountFilteredConnections.map((c) => c.provider).filter((p) => !seenProviders.has(p)))
+      ).sort();
+      const orderedProviders = [...availableProviders, ...remainingProviders];
+
+      const totalGroups = orderedProviders.length;
+      const totalPages = Math.max(1, Math.ceil(totalGroups / pageSize));
+      const currentPage = Math.min(page, totalPages);
+      const offset = (currentPage - 1) * pageSize;
+      const pageProviders = orderedProviders.slice(offset, offset + pageSize);
+      const pageProvidersSet = new Set(pageProviders);
+
+      const pageConnections = accountFilteredConnections
+        .filter((conn) => pageProvidersSet.has(conn.provider))
+        .sort((a, b) => {
+          const pIndexA = pageProviders.indexOf(a.provider);
+          const pIndexB = pageProviders.indexOf(b.provider);
+          if (pIndexA !== pIndexB) return pIndexA - pIndexB;
+          const priorityA = a.priority ?? Number.MAX_SAFE_INTEGER;
+          const priorityB = b.priority ?? Number.MAX_SAFE_INTEGER;
+          if (priorityA !== priorityB) return priorityA - priorityB;
+          return (a.name || "").localeCompare(b.name || "");
+        })
+        .map(sanitize);
+
+      return NextResponse.json({
+        connections: pageConnections,
+        providerOptions,
+        pagination: {
+          page: currentPage,
+          pageSize,
+          total: totalGroups,
+          totalPages,
+          totalConnections: accountFilteredConnections.length,
+          pageConnectionsCount: pageConnections.length,
+          groupBy: "provider",
+        },
+        totals: {
+          eligibleConnections: eligibleConnections.length,
+          providerFilteredConnections: providerFilteredConnections.length,
+          totalGroups,
+        },
+      });
+    }
 
     const sortedConnections = sortConnections(accountFilteredConnections, sort);
     const total = sortedConnections.length;

@@ -11,6 +11,9 @@ export const GROUP_BY_PROVIDER_STORAGE_KEY = "quotaGroupByProvider";
 export const CONNECTIONS_PAGE_SIZE = 20;
 export const ACCOUNT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const ACCOUNT_PAGE_SIZE_MAX = 500;
+export const PROVIDER_GROUP_PAGE_SIZE = 5;
+export const PROVIDER_GROUP_PAGE_SIZE_OPTIONS = [3, 5, 10, 20];
+export const GROUP_ITEMS_PAGE_SIZE = 6;
 export const ACCOUNT_FILTER_OPTIONS = [
   { value: "all", label: "All accounts" },
   { value: "active", label: "Active" },
@@ -163,8 +166,18 @@ export function sortRequestFromExpiringFirst(expiringFirst) {
   return expiringFirst ? "expiring" : "priority";
 }
 
-export function getPageSizeLabel(pageSize, isCustomPageSize) {
-  return isCustomPageSize ? `Custom: ${pageSize} / page` : `${pageSize} / page`;
+export function getPageSizeLabel(pageSize, isCustomPageSize, isGrouped = false) {
+  const unit = isGrouped ? "providers" : "accounts";
+  return isCustomPageSize ? `Custom: ${pageSize} / page` : `${pageSize} ${unit} / page`;
+}
+
+export function getGroupPaginationSummary(pagination, totalConnections) {
+  const { start, end } = getConnectionsPageRange(pagination);
+  if (!pagination?.total) {
+    return "No provider groups";
+  }
+  const accountsText = typeof totalConnections === "number" ? ` (${totalConnections} accounts)` : "";
+  return `Showing ${start}-${end} of ${pagination.total} provider groups${accountsText}`;
 }
 
 export function getConnectionsPaginationSummary(pagination) {
