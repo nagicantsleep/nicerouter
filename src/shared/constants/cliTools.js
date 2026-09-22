@@ -468,59 +468,95 @@ gemini extensions install https://github.com/manalkaff/opendesign
 # Fetch and follow .opencode/INSTALL.md from the repo`,
     },
   },
+  pi: {
+    id: "pi",
+    name: "Pi (pi-coding-agent)",
+    image: "/providers/pi.svg",
+    color: "#6366F1",
+    description: "Pi coding agent — minimal, extensible agent harness (pi.dev)",
+    configType: "custom",
+    docsUrl: "https://pi.dev",
+    notes: [
+      {
+        type: "info",
+        text: "Pi uses ~/.pi/agent/models.json. 9Router is configured under providers.9router as an OpenAI-compatible endpoint.",
+      },
+    ],
+  },
   omp: {
     id: "omp",
-    name: "Oh My Pi (omp)",
+    name: "Oh My Pi",
     image: "/providers/omp.png",
-    color: "#8B5CF6",
-    description: "Extensible terminal AI coding agent harness with specialized model roles",
+    color: "#EC4899",
+    description: "Oh My Pi terminal AI agent with auto-discovery support",
+    configType: "custom",
     docsUrl: "https://github.com/can1357/oh-my-pi",
-    configType: "guide",
-    defaultCommand: "omp",
-    modelAliases: ["default", "judge", "image", "web", "speech", "dictation", "plan", "slow", "smol"],
     notes: [
-      { type: "info", text: "omp supports specialized model roles (IMAGE, WEB, SPEECH, DICTATION, JUDGE) with ordered fallbacks." },
-      { type: "info", text: "NiceRouter natively supports all these roles via its unified endpoints (/v1/chat/completions, /v1/images/generations, /v1/search, /v1/audio/speech, /v1/audio/transcriptions, /v1/systemone)." },
-      { type: "warning", text: "Config path: Linux/macOS ~/.omp/agent/models.yml • Windows %USERPROFILE%\\.omp\\agent\\models.yml" },
+      {
+        type: "info",
+        text: "Oh My Pi uses ~/.omp/agent/models.yml and agent.db. 9Router is configured with proxy discovery so all models appear automatically under /model.",
+      },
     ],
-    defaultModels: [
-      { id: "default", name: "Default (General Coding)", alias: "default", defaultValue: "cc/claude-sonnet-4-6" },
-      { id: "judge", name: "Judge (Review & Decisions)", alias: "judge", defaultValue: "typesafe/jev-latest" },
-      { id: "image", name: "Image (Generation & Vision)", alias: "image", defaultValue: "openrouter/black-forest-labs/FLUX.1-schnell" },
-      { id: "web", name: "Web (Search & Research)", alias: "web", defaultValue: "perplexity/sonar-pro" },
-      { id: "speech", name: "Speech (Text-to-Speech)", alias: "speech", defaultValue: "openai/tts-1" },
-      { id: "dictation", name: "Dictation (Speech-to-Text)", alias: "dictation", defaultValue: "groq/whisper-large-v3-turbo" },
+  },
+  crush: {
+    id: "crush",
+    name: "Crush",
+    image: "/providers/crush.png",
+    color: "#FB923C",
+    description: "Charm Crush terminal AI coding agent",
+    configType: "custom",
+    docsUrl: "https://github.com/charmbracelet/crush",
+    notes: [
+      {
+        type: "info",
+        text: "Crush uses ~/.config/crush/crush.json. 9Router registers as an openai-compat provider.",
+      },
     ],
-    guideSteps: [
-      { step: 1, title: "Install Oh My Pi", desc: "Install omp CLI via your package manager or npm." },
-      { step: 2, title: "API Key", type: "apiKeySelector" },
-      { step: 3, title: "Base URL", value: "{{baseUrl}}", copyable: true },
-      { step: 4, title: "Select Model", type: "modelSelector" },
-      { step: 5, title: "Save Config", desc: "Add NiceRouter provider and role mappings to your ~/.omp/agent/models.yml file." },
+  },
+  forge: {
+    id: "forge",
+    name: "ForgeCode",
+    image: "/providers/forge.png",
+    color: "#EAB308",
+    description: "Antinomy HQ ForgeCode agent harness",
+    configType: "custom",
+    docsUrl: "https://github.com/antinomyhq/forge",
+    notes: [
+      {
+        type: "info",
+        text: "ForgeCode uses ~/.forge/config.toml. 9Router updates the [openai] section with your baseUrl, apiKey, and model.",
+      },
     ],
-    codeBlock: {
-      language: "yaml",
-      code: `providers:
-  nicerouter:
-    baseUrl: {{baseUrl}}
-    apiKey: {{apiKey}}
-    api: openai-completions
-    models:
-      - id: cc/claude-sonnet-4-6
-        name: Claude Sonnet 4.6
-      - id: typesafe/jev-latest
-        name: Jev Judge (System One)
-      - id: perplexity/sonar-pro
-        name: Perplexity Sonar
-      - id: openrouter/black-forest-labs/FLUX.1-schnell
-        name: FLUX.1 Schnell
-
-modelRoles:
-  default: nicerouter/cc/claude-sonnet-4-6
-  judge: nicerouter/typesafe/jev-latest
-  web: nicerouter/perplexity/sonar-pro
-  image: nicerouter/openrouter/black-forest-labs/FLUX.1-schnell`,
-    },
+  },
+  smelt: {
+    id: "smelt",
+    name: "Smelt",
+    image: "/providers/smelt.svg",
+    color: "#EF4444",
+    description: "Smelt terminal AI coding assistant",
+    configType: "custom",
+    docsUrl: "https://github.com/leonardcser/smelt",
+    notes: [
+      {
+        type: "info",
+        text: "Smelt uses ~/.smelt/config.json for OpenAI-compatible endpoint configuration.",
+      },
+    ],
+  },
+  codewhale: {
+    id: "codewhale",
+    name: "CodeWhale",
+    image: "/providers/codewhale.svg",
+    color: "#4F46E5",
+    description: "CodeWhale terminal coding agent (successor to DeepSeek TUI)",
+    configType: "custom",
+    docsUrl: "https://github.com/Hmbown/CodeWhale",
+    notes: [
+      {
+        type: "info",
+        text: "CodeWhale uses ~/.codewhale/config.toml. 9Router configures the [openai] provider with your base_url, api_key, and model.",
+      },
+    ],
   },
   // HIDDEN: gemini-cli
   // "gemini-cli": {

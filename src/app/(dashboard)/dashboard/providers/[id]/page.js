@@ -202,7 +202,7 @@ export default function ProviderDetailPage() {
   const apiKeyConnectionLabel =
     providerId === "xai" ? "xAI API Key"
     : providerId === "kimi" ? "Kimi API Key"
-    : providerId === "qoder" ? "PAT"
+    : (providerId === "qoder" || providerId === "qoder-cn") ? "PAT"
     : "API Key";
   // Resolve suffix "(level)" for a model when a thinking level is picked and the model supports it.
   const resolveThinkingSuffix = (modelId) => {
@@ -637,7 +637,6 @@ export default function ProviderDetailPage() {
           await fetch(`/api/models/custom?${p}`, { method: "DELETE" });
         } else if (row.alias) {
           await fetch(`/api/models/alias?alias=${encodeURIComponent(row.alias)}`, { method: "DELETE" });
-        }
       }
       await Promise.all([fetchCustomModels(), fetchAliases()]);
       if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
@@ -1227,8 +1226,8 @@ export default function ProviderDetailPage() {
           Add Model
         </button>
 
-        {/* Fetch & Select Live Models button - only for Custom providers, Integrated API-key providers, and Free-tier providers */}
-        {(isCompatible || ALLOWED_LIVE_FETCH_PROVIDERS.has(providerId)) && (
+        {/* Fetch & Select Live Models button - only for Custom providers, Integrated API-key providers, Free-tier providers, and Qoder */}
+        {(isCompatible || ALLOWED_LIVE_FETCH_PROVIDERS.has(providerId) || providerId === "qoder" || providerId === "qoder-cn") && (
           <button
             onClick={() => setShowLiveModelModal(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto"

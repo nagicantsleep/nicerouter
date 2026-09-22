@@ -9,13 +9,14 @@ import {
   parseConnectRPCFrame,
   extractTextFromResponse,
   encodeMcpTools,
-  decodeMcpArgs
+  decodeMcpArgs,
 } from "../utils/cursorProtobuf.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { estimateUsage } from "../utils/usageTracking.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { chatChunkSse, sseChunk } from "../utils/sse.js";
 import { FORMATS } from "../translator/formats.js";
+import { ROLE, OPENAI_BLOCK } from "../translator/schema/index.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import zlib from "zlib";
 import crypto from "crypto";
@@ -67,220 +68,74 @@ function textFromContent(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
   return content
-    .filter((part) => part?.type === "text" && typeof part.text === "string")
+    .filter((part) => part?.type === OPENAI_BLOCK.TEXT && typeof part.text === "string")
     .map((part) => part.text)
     .join("\n");
 }
 
+function isTextPart(part) {
+  return !part || part.type === OPENAI_BLOCK.TEXT || typeof part === "string";
+}
+
 export function isAgentCapableRequest(body) {
-  if (!body || !Array.isArray(body.messages) || body.messages.length === 0) return false;
+  // ChatService rejects auto/composer and most thinking variants. AgentService
+  // can answer text turns (including declared tool schemas) and tool-call
+  // history. Image parts still need the legacy protobuf path.
+  if (!Array.isArray(body?.messages) || body.messages.length === 0) return false;
   return body.messages.every((message) => {
-    if (!message || typeof message !== "object") return false;
-    const content = message.content;
-    if (content == null) return true;
-    if (typeof content === "string") return true;
-    if (Array.isArray(content)) {
-      return content.every((part) => part?.type === "text" || part?.type === "tool_result");
-    }
-    return false;
+    if (Array.isArray(message?.content)) return message.content.every(isTextPart);
+    return message?.content == null || typeof message.content === "string";
   });
-}
-
-export const isAgentTextRequest = isAgentCapableRequest;
-
-function tryParseJson(str) {
-  try { return JSON.parse(str); } catch { return str; }
-}
-
-export function formatToolsForPrompt(tools) {
-  if (!Array.isArray(tools) || tools.length === 0) return "";
-  const simplified = tools.map((t) => {
-    const fn = t.function || t;
-    return {
-      name: fn.name,
-      description: fn.description || "",
-      parameters: fn.parameters || fn.input_schema || fn.inputSchema || {},
-    };
-  });
-
-  return [
-    "# Available Tools",
-    "You have access to the following tools:",
-    "```json",
-    JSON.stringify(simplified, null, 2),
-    "```",
-    "",
-    "# Tool Calling Instructions",
-    "- If you decide to invoke one or more tools, you MUST output ONLY a single JSON object in the following format, with NO other text or explanation before or after it:",
-    "```json",
-    "{",
-    '  "tool_calls": [',
-    "    {",
-    '      "name": "<tool_name>",',
-    '      "arguments": { <arguments object> }',
-    "    }",
-    "  ]",
-    "}",
-    "```",
-    "- If no tool call is needed, answer the user request directly as normal text.",
-    "- Do NOT attempt to use any IDE or editor-specific commands.",
-  ].join("\n");
-}
-
-export function normalizeMessagesForAgent(messages) {
-  if (!Array.isArray(messages)) return [];
-  const result = [];
-  for (const msg of messages) {
-    if (!msg || typeof msg !== "object") continue;
-    if (msg.role === "tool") {
-      const toolCallId = msg.tool_call_id || "";
-      const content = textFromContent(msg.content);
-      result.push({
-        role: "user",
-        content: `<tool_result tool_call_id="${toolCallId}">\n${content}\n</tool_result>`,
-      });
-      continue;
-    }
-    if (msg.role === "assistant" && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
-      const calls = msg.tool_calls.map((tc) => ({
-        id: tc.id || "",
-        name: tc.function?.name || tc.name || "",
-        arguments: typeof tc.function?.arguments === "string"
-          ? tryParseJson(tc.function.arguments)
-          : (tc.function?.arguments || {}),
-      }));
-      const jsonBlock = `\`\`\`json\n${JSON.stringify({ tool_calls: calls }, null, 2)}\n\`\`\``;
-      const text = textFromContent(msg.content);
-      result.push({
-        role: "assistant",
-        content: text ? `${text}\n\n${jsonBlock}` : jsonBlock,
-      });
-      continue;
-    }
-    result.push(msg);
-  }
-  return result;
-}
-
-export function parseToolCallsFromText(text) {
-  if (!text || typeof text !== "string") return null;
-  const trimmed = text.trim();
-
-  // 1. Try markdown code blocks: ```json ... ``` or ``` ... ```
-  const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
-  let match;
-  const candidates = [];
-  while ((match = codeBlockRegex.exec(trimmed)) !== null) {
-    if (match[1]) candidates.push(match[1].trim());
-  }
-  candidates.push(trimmed);
-
-  // 2. Scan for balanced JSON objects containing "tool_calls"
-  const toolCallsIdx = trimmed.indexOf('"tool_calls"');
-  if (toolCallsIdx >= 0) {
-    const startIdx = trimmed.lastIndexOf("{", toolCallsIdx);
-    if (startIdx >= 0) {
-      let openBraces = 0;
-      for (let i = startIdx; i < trimmed.length; i++) {
-        if (trimmed[i] === "{") openBraces++;
-        else if (trimmed[i] === "}") {
-          openBraces--;
-          if (openBraces === 0) {
-            candidates.push(trimmed.slice(startIdx, i + 1));
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === "object") {
-        let calls = null;
-        if (Array.isArray(parsed.tool_calls)) {
-          calls = parsed.tool_calls;
-        } else if (parsed.name && (parsed.arguments !== undefined || parsed.parameters !== undefined)) {
-          calls = [parsed];
-        }
-
-        if (calls && calls.length > 0) {
-          const validated = calls.map((c, i) => {
-            const name = c.name || c.function?.name || "";
-            let args = c.arguments !== undefined ? c.arguments : (c.parameters !== undefined ? c.parameters : {});
-            if (typeof args !== "string") {
-              args = JSON.stringify(args);
-            }
-            return {
-              id: c.id || `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 9)}`,
-              type: "function",
-              function: {
-                name,
-                arguments: args,
-              },
-            };
-          }).filter((c) => Boolean(c.function.name));
-
-          if (validated.length > 0) {
-            return validated;
-          }
-        }
-      }
-    } catch {}
-  }
-
-  return null;
 }
 
 function encodeHistoryMessage(message) {
-  let content = textFromContent(message?.content);
-  if (!content && message?.tool_calls?.length) {
-    content = JSON.stringify({ tool_calls: message.tool_calls });
+  const content = textFromContent(message?.content);
+  const extras = [];
+  if (message?.role === ROLE.ASSISTANT && message.tool_calls?.length) {
+    for (const tc of message.tool_calls) {
+      extras.push(`[tool_call id=${tc.id || ""} name=${tc.function?.name || "tool"} args=${tc.function?.arguments || "{}"}]`);
+    }
   }
-  if (!content && message?.role === "tool") {
-    content = `<tool_result tool_call_id="${message.tool_call_id || ""}">\n${textFromContent(message.content) || ""}\n</tool_result>`;
+  if (message?.role === ROLE.TOOL) {
+    extras.push(`[tool_result id=${message.tool_call_id || ""}]`);
   }
-  if (!content) return null;
+  const textBody = [content, ...extras].filter(Boolean).join("\n");
+  if (!textBody) return null;
 
   // ConversationHistoryMessage.user / .assistant -> repeated content -> text.
-  const text = agentString(1, content);
-  if (message.role === "assistant") {
+  const text = agentString(1, textBody);
+  if (message.role === ROLE.ASSISTANT) {
     return agentMessage(2, agentMessage(1, agentMessage(1, text)));
   }
   return agentMessage(1, agentMessage(1, agentMessage(1, text)));
 }
 
 export function buildAgentRunFrame(messages, model, tools = []) {
-  const normalizedMessages = normalizeMessagesForAgent(messages);
-  let toolPrompt = "";
-  if (Array.isArray(tools) && tools.length > 0) {
-    toolPrompt = formatToolsForPrompt(tools);
-  }
-
-  const systemParts = normalizedMessages
-    .filter((message) => message?.role === "system")
+  // custom_system_prompt (RunRequest field 8) makes AgentService return an
+  // empty turn. Fold system text into the current user message instead.
+  const system = messages
+    .filter((message) => message?.role === ROLE.SYSTEM)
     .map((message) => textFromContent(message.content))
-    .filter(Boolean);
-
-  if (toolPrompt) {
-    systemParts.push(toolPrompt);
-  }
-
-  const system = systemParts.join("\n\n");
-  const chatMessages = normalizedMessages.filter((message) => message?.role !== "system");
-  const currentIndex = [...chatMessages].map((message) => message?.role).lastIndexOf("user");
+    .filter(Boolean)
+    .join("\n\n");
+  const chatMessages = messages.filter((message) => message?.role !== ROLE.SYSTEM);
+  const currentIndex = [...chatMessages].map((message) => message?.role).lastIndexOf(ROLE.USER);
   const current = currentIndex >= 0 ? chatMessages[currentIndex] : chatMessages.at(-1);
   const history = chatMessages
     .slice(0, currentIndex >= 0 ? currentIndex : -1)
     .map(encodeHistoryMessage)
     .filter(Boolean);
-  const userText = textFromContent(current?.content) || "Continue.";
+  const rawUser = textFromContent(current?.content) || "Continue.";
+  const userText = system ? `${system}\n\n${rawUser}` : rawUser;
 
   // agent.v1.UserMessageAction.user_message and its optional history.
+  // selected_context (3) + mode=1 (4) match cursor-agent's wire format; without
+  // them the server may accept the RPC and stream an empty turn.
   const userMessage = concatBuffers(
     agentString(1, userText),
     agentString(2, crypto.randomUUID()),
+    agentMessage(3, new Uint8Array()),
+    encodeField(4, PROTOBUF_VARINT, 1),
   );
   const conversationHistory = history.length
     ? concatBuffers(...history.map((entry) => agentMessage(1, entry)))
@@ -291,15 +146,20 @@ export function buildAgentRunFrame(messages, model, tools = []) {
   );
   const conversationAction = agentMessage(1, userAction);
   const requestedModel = concatBuffers(agentString(1, model), agentBool(7, true));
-
-  const mcpToolsBytes = Array.isArray(tools) && tools.length > 0 ? encodeMcpTools(tools) : null;
-
+  // ModelDetails (field 3): thinking variants (Composer, Grok, *-thinking)
+  // return an empty turn when only RequestedModel (field 9) is set.
+  const modelDetails = concatBuffers(
+    agentString(1, model),
+    agentString(3, model),
+    agentString(4, model),
+  );
+  const mcpTools = encodeMcpTools(tools);
   const runRequest = concatBuffers(
     // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
-    ...(mcpToolsBytes && mcpToolsBytes.length > 0 ? [agentMessage(4, mcpToolsBytes)] : []),
-    ...(system ? [agentString(8, system)] : []),
+    agentMessage(3, modelDetails),
+    ...(mcpTools.length ? [agentMessage(4, mcpTools)] : []),
     agentMessage(9, requestedModel),
   );
 
@@ -328,13 +188,51 @@ function decodeAgentFrames(buffer, onFrame) {
   return pending;
 }
 
-function createRequestContextResponse() {
-  // AgentService asks every run for client context. 9router has no IDE file
-  // context, so acknowledge with an empty RequestContext.
+function execIds(execRequest) {
+  const id = Number(execRequest?.get(1)?.[0]?.value || 0);
+  const execId = extractAgentString(execRequest, 15);
+  return { id, execId };
+}
+
+function wrapExecClientMessage(execMsgId, execId, resultField, resultPayload) {
+  const parts = [];
+  if (execMsgId) parts.push(encodeField(1, PROTOBUF_VARINT, execMsgId));
+  parts.push(agentString(15, execId || ""));
+  parts.push(encodeField(resultField, PROTOBUF_LEN, resultPayload || new Uint8Array()));
+  return wrapConnectRPCFrame(agentMessage(2, concatBuffers(...parts)));
+}
+
+function createRequestContextResponse(execRequest) {
+  // Tools already go out on AgentRunRequest.mcp_tools. Echoing them again on
+  // this ack makes AgentService stall silently (0 SSE bytes until abort).
+  const { id, execId } = execIds(execRequest);
   const requestContextSuccess = agentMessage(1, new Uint8Array());
   const requestContextResult = agentMessage(1, requestContextSuccess);
-  const execClientMessage = agentMessage(10, requestContextResult);
-  return wrapConnectRPCFrame(agentMessage(2, execClientMessage));
+  return wrapExecClientMessage(id, execId, 10, requestContextResult);
+}
+
+// ExecServerMessage variant → ExecClientMessage result field (same numbers).
+const EXEC_RESULT_FIELD = {
+  2: 2, 3: 3, 4: 4, 5: 5, 7: 7, 8: 8, 9: 9, 16: 16, 20: 20, 23: 23,
+};
+
+function rejectExecRequest(execRequest) {
+  const { id, execId } = execIds(execRequest);
+  const variant = [...(execRequest?.keys?.() || [])].find((field) => field !== 1 && field !== 15);
+  const resultField = EXEC_RESULT_FIELD[variant];
+  if (!resultField) return null;
+  // Diagnostics has no rejected variant — empty success unblocks the stream.
+  if (variant === 9) return wrapExecClientMessage(id, execId, 9, new Uint8Array());
+  const rejected = agentMessage(2, agentString(2, "Tool not available in this environment. Use the MCP tools provided instead."));
+  return wrapExecClientMessage(id, execId, resultField, rejected);
+}
+
+function encodeKvClientMessage(kvId, resultField, resultPayload, metadata) {
+  const parts = [];
+  if (kvId) parts.push(encodeField(1, PROTOBUF_VARINT, kvId));
+  parts.push(encodeField(resultField, PROTOBUF_LEN, resultPayload || new Uint8Array()));
+  if (metadata && metadata.length) parts.push(encodeField(4, PROTOBUF_LEN, metadata));
+  return wrapConnectRPCFrame(agentMessage(3, concatBuffers(...parts)));
 }
 
 const CURSOR_STREAM_DEBUG = process.env.CURSOR_STREAM_DEBUG === "1";
@@ -445,16 +343,6 @@ function createErrorResponse(jsonError) {
   });
 }
 
-export function normalizeCursorModel(model) {
-  if (!model) return "default";
-  const m = model.toLowerCase().trim();
-  if (m === "composer" || m === "cursor-composer") return "composer-2.5";
-  if (m === "grok" || m === "cursor-grok") return "grok-4.5";
-  if (m === "cursor-grok-4.6") return "grok-4.6";
-  if (m === "cursor-grok-4.5") return "grok-4.5";
-  return model;
-}
-
 export class CursorExecutor extends BaseExecutor {
   constructor() {
     super("cursor", PROVIDERS.cursor);
@@ -479,14 +367,13 @@ export class CursorExecutor extends BaseExecutor {
   transformRequest(model, body, stream, credentials) {
     // Messages are already translated by chatCore (claude→openai→cursor)
     // Do NOT call openaiToCursorRequest again — double-translation drops tool_results
-    const effectiveModel = normalizeCursorModel(model);
     const messages = body.messages || [];
     const tools = body.tools || [];
     const reasoningEffort = body.reasoning_effort || null;
     // Detect Claude Code UA to force Agent mode (issue #643)
     const ua = credentials?.rawHeaders?.["user-agent"] || "";
     const forceAgentMode = ua.includes("claude-cli") || ua.includes("claude-code") || ua.includes("Claude Code");
-    return generateCursorBody(messages, effectiveModel, tools, reasoningEffort, forceAgentMode);
+    return generateCursorBody(messages, model, tools, reasoningEffort, forceAgentMode);
   }
 
   async makeFetchRequest(url, headers, body, signal, proxyOptions = null) {
@@ -661,7 +548,7 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  async executeAgent({ model, body, stream, credentials, signal }) {
+  async executeAgent({ model, body, stream, credentials, signal, log }) {
     const agentEndpoint = PROVIDER_OAUTH.cursor?.agentEndpoint;
     if (!agentEndpoint) throw new Error("Cursor AgentService endpoint is not configured");
 
@@ -673,9 +560,10 @@ export class CursorExecutor extends BaseExecutor {
     }
 
     let session;
+    const tools = body.tools || [];
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model, body.tools || []));
+      session.write(buildAgentRunFrame(body.messages || [], model, tools));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }
@@ -715,8 +603,23 @@ export class CursorExecutor extends BaseExecutor {
     // so strict clients such as Claude Code accept the completed stream.
     const responseId = `chatcmpl-msg_${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
+    const composerModel = isComposerModel(model);
     let pending = Buffer.alloc(0);
     let finished = false;
+    let thinkingAcc = "";
+    let emittedVisible = 0;
+    let emittedText = false;
+
+    const flushThinkingFallback = (onEvent) => {
+      if (emittedText || !thinkingAcc) return;
+      const fallback = composerModel
+        ? visibleComposerContentFromThinking(thinkingAcc)
+        : thinkingAcc.trim();
+      if (fallback) {
+        emittedText = true;
+        onEvent({ type: "text", value: fallback });
+      }
+    };
 
     const consume = async (onEvent) => {
       try {
@@ -735,57 +638,87 @@ export class CursorExecutor extends BaseExecutor {
               const update = decodeMessage(serverMessage.get(1)[0].value);
               if (update.has(1)) {
                 const textDelta = extractAgentString(decodeMessage(update.get(1)[0].value), 1);
-                if (textDelta) onEvent({ type: "text", value: textDelta });
+                if (textDelta) {
+                  emittedText = true;
+                  onEvent({ type: "text", value: textDelta });
+                }
               }
-              // Cursor's AgentService emits internal reasoning without the
-              // cryptographic signature required by Anthropic thinking blocks.
-              // Forwarding it makes strict Anthropic clients (Claude Code)
-              // discard or wait on an otherwise complete response. Keep the
-              // reasoning upstream-only and emit the normal answer text.
+              // thinking_delta (field 4). Composer (and some Grok variants) put
+              // the visible answer after </think> here and never send text_delta.
+              if (update.has(4)) {
+                const thinkingDelta = extractAgentString(decodeMessage(update.get(4)[0].value), 1);
+                if (thinkingDelta) {
+                  thinkingAcc += thinkingDelta;
+                  if (composerModel) {
+                    const visible = visibleComposerContentFromThinking(thinkingAcc);
+                    if (visible.length > emittedVisible) {
+                      const deltaContent = visible.slice(emittedVisible);
+                      emittedVisible = visible.length;
+                      emittedText = true;
+                      onEvent({ type: "text", value: deltaContent });
+                    }
+                  }
+                }
+              }
+              // Keep unsigned reasoning upstream-only for Anthropic clients.
               if (update.has(14)) {
+                flushThinkingFallback(onEvent);
                 finished = true;
                 onEvent({ type: "done" });
-                session.close();
+              }
+            }
+
+            // KvServerMessage (field 4): get/set blob. Ack so the stream proceeds.
+            if (serverMessage.has(4)) {
+              const kv = decodeMessage(serverMessage.get(4)[0].value);
+              const kvId = kv.get(1)?.[0]?.value || 0;
+              const metadata = kv.get(4)?.[0]?.value || null;
+              if (kv.has(2)) {
+                session.write(encodeKvClientMessage(kvId, 2, agentMessage(1, new Uint8Array()), metadata));
+              } else if (kv.has(3)) {
+                session.write(encodeKvClientMessage(kvId, 3, new Uint8Array(), metadata));
               }
             }
 
             // AgentService requests IDE context before producing a response.
-            // Return an empty context; 9router is not coupled to an editor.
             if (serverMessage.has(2)) {
               const execRequest = decodeMessage(serverMessage.get(2)[0].value);
               if (execRequest.has(10)) {
-                session.write(createRequestContextResponse());
+                log?.info?.("CURSOR", "AgentService request_context ack");
+                session.write(createRequestContextResponse(execRequest));
               } else if (execRequest.has(11)) {
                 const mcp = decodeMcpArgs(execRequest.get(11)[0].value);
-                if (mcp && (mcp.toolName || mcp.name)) {
+                const name = mcp.toolName || mcp.name;
+                if (name) {
+                  log?.info?.("CURSOR", `AgentService MCP tool_call ${name}`);
+                  finished = true;
                   onEvent({
                     type: "tool_call",
                     value: {
-                      id: mcp.toolCallId || `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 9)}`,
-                      type: "function",
-                      function: {
-                        name: mcp.toolName || mcp.name,
-                        arguments: typeof mcp.args === "string" ? mcp.args : JSON.stringify(mcp.args || {}),
-                      },
+                      id: mcp.toolCallId || `call_${crypto.randomUUID()}`,
+                      name,
+                      arguments: JSON.stringify(mcp.args || {}),
                     },
                   });
-                  finished = true;
-                  onEvent({ type: "done" });
-                  session.close();
+                  onEvent({ type: "done", finishReason: "tool_calls" });
                 } else {
                   debugLog(`[CURSOR AGENT] Unsupported exec request fields: ${[...execRequest.keys()].join(",")}`);
                   finished = true;
                   onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
-                  session.close();
                 }
               } else {
-                // Every other ExecServerMessage variant is an editor-backed tool
-                // (shell, read, write, …) that 9router cannot service. Fail the
-                // turn rather than narrating protocol state as assistant text.
-                debugLog(`[CURSOR AGENT] Unsupported exec request fields: ${[...execRequest.keys()].join(",")}`);
-                finished = true;
-                onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
-                session.close();
+                // Auto/Composer often probe IDE builtins (shell/read/…). Reject
+                // them so the model can continue with MCP tools or a text answer
+                // instead of stalling the h2 stream.
+                const rejection = rejectExecRequest(execRequest);
+                if (rejection) {
+                  log?.info?.("CURSOR", `AgentService rejected IDE exec fields=${[...execRequest.keys()].join(",")}`);
+                  session.write(rejection);
+                } else {
+                  debugLog(`[CURSOR AGENT] Unsupported exec request fields: ${[...execRequest.keys()].join(",")}`);
+                  finished = true;
+                  onEvent({ type: "error", value: "Cursor AgentService requested an unsupported IDE tool" });
+                }
               }
             }
           });
@@ -793,7 +726,10 @@ export class CursorExecutor extends BaseExecutor {
       } finally {
         try { session.end(); } catch {}
         try { session.close(); } catch {}
-        if (!finished) onEvent({ type: "done" });
+        if (!finished) {
+          flushThinkingFallback(onEvent);
+          onEvent({ type: "done" });
+        }
       }
     };
 
@@ -801,12 +737,21 @@ export class CursorExecutor extends BaseExecutor {
       let content = "";
       let reasoning = "";
       let agentError = null;
-      const nativeToolCalls = [];
+      const toolCalls = [];
+      let finishReason = "stop";
       await consume((event) => {
         if (event.type === "text") content += event.value;
         else if (event.type === "thinking") reasoning += event.value;
-        else if (event.type === "tool_call") nativeToolCalls.push(event.value);
+        else if (event.type === "tool_call") {
+          toolCalls.push({
+            id: event.value.id,
+            type: "function",
+            function: { name: event.value.name, arguments: event.value.arguments },
+          });
+          finishReason = "tool_calls";
+        }
         else if (event.type === "error") agentError = event.value;
+        else if (event.type === "done" && event.finishReason) finishReason = event.finishReason;
       });
       if (agentError) {
         return {
@@ -820,27 +765,19 @@ export class CursorExecutor extends BaseExecutor {
           responseFormat: FORMATS.OPENAI,
         };
       }
-
-      const parsedCalls = nativeToolCalls.length > 0 ? nativeToolCalls : parseToolCallsFromText(content);
-      const hasToolCalls = Array.isArray(parsedCalls) && parsedCalls.length > 0;
-      const finishReason = hasToolCalls ? "tool_calls" : "stop";
-
+      const message = {
+        role: "assistant",
+        content: content || null,
+        ...(reasoning ? { reasoning_content: reasoning } : {}),
+        ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+      };
       return {
         response: new Response(JSON.stringify({
           id: responseId,
           object: "chat.completion",
           created,
           model,
-          choices: [{
-            index: 0,
-            message: {
-              role: "assistant",
-              content: hasToolCalls ? null : (content || null),
-              ...(hasToolCalls ? { tool_calls: parsedCalls } : {}),
-              ...(reasoning ? { reasoning_content: reasoning } : {}),
-            },
-            finish_reason: finishReason,
-          }],
+          choices: [{ index: 0, message, finish_reason: finishReason }],
           usage: estimateUsage(body, content.length, FORMATS.OPENAI),
         }), { headers: { "Content-Type": "application/json" } }),
         url,
@@ -851,32 +788,25 @@ export class CursorExecutor extends BaseExecutor {
     }
 
     const encoder = new TextEncoder();
-    const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
-    let accumulatedContent = "";
-    let isCheckingToolCall = hasTools;
-    const nativeToolCalls = [];
-
     const responseStream = new ReadableStream({
       start(controller) {
         consume((event) => {
           if (event.type === "text") {
-            if (!isCheckingToolCall) {
-              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: event.value } })));
-            } else {
-              accumulatedContent += event.value;
-              const trimmed = accumulatedContent.trimStart();
-              if (trimmed.startsWith("{") || trimmed.startsWith("`")) {
-                // Keep buffering potential tool call JSON
-              } else if (trimmed.length >= 6) {
-                // Clearly not a tool call JSON block, flush and stop buffering
-                isCheckingToolCall = false;
-                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: accumulatedContent } })));
-              }
-            }
+            controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: event.value } })));
           } else if (event.type === "thinking") {
             controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { reasoning_content: event.value } })));
           } else if (event.type === "tool_call") {
-            nativeToolCalls.push(event.value);
+            controller.enqueue(encoder.encode(chatChunkSse({
+              id: responseId, created, model,
+              delta: {
+                tool_calls: [{
+                  index: 0,
+                  id: event.value.id,
+                  type: "function",
+                  function: { name: event.value.name, arguments: event.value.arguments },
+                }],
+              },
+            })));
           } else if (event.type === "error") {
             // An SSE error frame, not a content delta: a protocol failure must not
             // be rendered to the user as the assistant's reply, and downstream
@@ -885,21 +815,10 @@ export class CursorExecutor extends BaseExecutor {
             controller.enqueue(encoder.encode(SSE_DONE));
             controller.close();
           } else if (event.type === "done") {
-            if (nativeToolCalls.length > 0) {
-              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { tool_calls: nativeToolCalls }, finishReason: "tool_calls" })));
-            } else if (isCheckingToolCall) {
-              const parsedCalls = parseToolCallsFromText(accumulatedContent);
-              if (parsedCalls && parsedCalls.length > 0) {
-                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { tool_calls: parsedCalls }, finishReason: "tool_calls" })));
-              } else {
-                if (accumulatedContent) {
-                  controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: { content: accumulatedContent } })));
-                }
-                controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: {}, finishReason: "stop" })));
-              }
-            } else {
-              controller.enqueue(encoder.encode(chatChunkSse({ id: responseId, created, model, delta: {}, finishReason: "stop" })));
-            }
+            controller.enqueue(encoder.encode(chatChunkSse({
+              id: responseId, created, model, delta: {},
+              finishReason: event.finishReason || "stop",
+            })));
             controller.enqueue(encoder.encode(SSE_DONE));
             controller.close();
           }
@@ -920,10 +839,9 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
-    const effectiveModel = normalizeCursorModel(model);
-    if (isAgentTextRequest(body)) {
+    if (isAgentCapableRequest(body)) {
       try {
-        return await this.executeAgent({ model: effectiveModel, body, stream, credentials, signal });
+        return await this.executeAgent({ model, body, stream, credentials, signal, log });
       } catch (error) {
         return {
           response: new Response(JSON.stringify({
@@ -938,7 +856,7 @@ export class CursorExecutor extends BaseExecutor {
 
     const url = this.buildUrl();
     const headers = this.buildHeaders(credentials);
-    const transformedBody = this.transformRequest(effectiveModel, body, stream, credentials);
+    const transformedBody = this.transformRequest(model, body, stream, credentials);
 
     try {
       const shouldForceFetch = proxyOptions?.enabled === true || proxyOptions?.connectionProxyEnabled === true || !!proxyOptions?.vercelRelayUrl;
