@@ -138,7 +138,6 @@ import pModelScope from "./modelscope.js";
 import pOneRouter from "./onerouter.js";
 import pWusRouter from "./wusrouter.js";
 import pFreebuff from "./freebuff.js";
-import pOpencodeZen from "./opencode-zen.js";
 import pTinyfish from "./tinyfish.js";
 import pTypesafe from "./typesafe.js";
 import pOpengateway from "./opengateway.js";
@@ -281,7 +280,6 @@ export default [
   pOneRouter,
   pWusRouter,
   pFreebuff,
-  pOpencodeZen,
   pTinyfish,
   pTypesafe,
   pOpengateway,
