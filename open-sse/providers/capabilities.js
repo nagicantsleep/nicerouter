@@ -446,7 +446,20 @@ export const PATTERN_CAPABILITIES = [
  */
 export function aggregateComboCapabilities(comboModels, comboLookup = null, _depth = 0) {
   if (!comboModels?.length || _depth > 6) return null;
-  const allCaps = comboModels.map((fullId) => {
+  const modelIds = comboModels
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        if (item.enabled === false) return null;
+        return typeof item.model === "string" ? item.model : (typeof item.id === "string" ? item.id : null);
+      }
+      return null;
+    })
+    .filter((id) => typeof id === "string" && id.trim() !== "");
+
+  if (!modelIds.length) return null;
+
+  const allCaps = modelIds.map((fullId) => {
     // Nested combo: bare name (no slash) that exists in the lookup — recurse
     if (!fullId.includes("/") && comboLookup?.[fullId]) {
       return aggregateComboCapabilities(comboLookup[fullId], comboLookup, _depth + 1)
@@ -458,6 +471,7 @@ export function aggregateComboCapabilities(comboModels, comboLookup = null, _dep
     return getCapabilitiesForModel(provider, model);
   });
   const first = allCaps[0];
+  if (!first) return null;
   return {
     vision:      allCaps.some((c) => c.vision),
     pdf:         allCaps.some((c) => c.pdf),
