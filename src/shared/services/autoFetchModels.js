@@ -32,6 +32,8 @@ export const PRUNE_TARGET_PROVIDERS = [
   { id: "modelscope", freeOnly: false },
   { id: "onerouter", freeOnly: false },
   { id: "wusrouter", freeOnly: false },
+  { id: "opengateway", freeOnly: false },
+  { id: "agents-vn", freeOnly: false },
   { id: "qoder", freeOnly: false },
   { id: "cline", freeOnly: false },
   { id: "clinepass", freeOnly: false },

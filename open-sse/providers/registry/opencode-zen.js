@@ -50,6 +50,7 @@ export default {
     { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash", targetFormat: "openai" },
     { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", targetFormat: "openai" },
     { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", targetFormat: "openai" },
+    { id: "jev-1.13", name: "Jev 1.13 (System One)", targetFormat: "systemone" },
   ],
   modelsFetcher: { url: "https://opencode.ai/zen/v1/models", type: "openai" },
   passthroughModels: true,

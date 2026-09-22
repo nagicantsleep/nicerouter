@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/lib/localDb", () => ({
   getSettings: vi.fn().mockResolvedValue({ requireApiKey: false }),
+  getComboByName: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("../../src/sse/services/auth.js", () => ({

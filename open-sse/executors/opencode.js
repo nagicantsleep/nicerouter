@@ -15,6 +15,9 @@ import {
 } from "../translator/formats/responsesApi.js";
 
 import { OPENCODE_FREE_TIER_ERROR_MESSAGE } from "../config/errorConfig.js";
+import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { SSE_DONE } from "../utils/sseConstants.js";
+import { messagesToState, deriveQuestions, formatAnswersContent } from "./typesafe.js";
 
 const OPENCODE_UA = "opencode/1.18.31";
 const MAX_SESSION_LENGTH = 256;
@@ -325,6 +328,11 @@ function isMessagesModel(model) {
   return MESSAGES_MODELS.has(baseModelId(model));
 }
 
+export function isSystemOneModel(model) {
+  const base = baseModelId(model).toLowerCase();
+  return base.includes("jev") || base.startsWith("systemone");
+}
+
 function resolveOpencodeSession(body, credentials, providerSessionId, clientTool) {
   const headers = credentials?.rawHeaders || {};
   const native = nativeSession(headers);
@@ -475,6 +483,20 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   transformRequest(model, body, stream, credentials) {
     if (body && typeof body === "object" && model && !body.model) body.model = model;
+    if (isSystemOneModel(model || body?.model)) {
+      if (body?.state !== undefined && body?.questions !== undefined) {
+        return {
+          model: model || body?.model || "jev-1.13-free",
+          state: body.state,
+          questions: body.questions,
+        };
+      }
+      return {
+        model: model || body?.model || "jev-1.13-free",
+        state: messagesToState(body?.messages) || body?.prompt || "",
+        questions: deriveQuestions(body || {}),
+      };
+    }
     // Zen rejects non-streaming requests on free models with 403 FreeTierError;
     // always stream upstream and let the handler layer aggregate for non-stream clients.
     if (body && typeof body === "object") body.stream = true;
@@ -512,11 +534,167 @@ export class OpenCodeExecutor extends BaseExecutor {
   }
 
   async execute(args) {
-    return super.execute({ ...args, credentials: this.prepareRequestCredentials(args) });
+    const creds = this.prepareRequestCredentials(args);
+    const { model, body, stream, signal, log, proxyOptions } = args;
+    if (isSystemOneModel(model || body?.model)) {
+      const url = this.buildUrl(model || body?.model);
+      const transformedBody = this.transformRequest(model, body, stream, creds);
+      const headers = this.buildHeaders(creds, stream, url);
+
+      let upstreamResponse;
+      try {
+        upstreamResponse = await proxyAwareFetch(
+          url,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(transformedBody),
+            signal,
+          },
+          proxyOptions
+        );
+      } catch (err) {
+        throw err;
+      }
+
+      if (!upstreamResponse.ok) {
+        return {
+          response: upstreamResponse,
+          url,
+          headers,
+          transformedBody,
+          responseFormat: "openai",
+        };
+      }
+
+      let rawData;
+      try {
+        rawData = await upstreamResponse.json();
+      } catch (e) {
+        throw new Error(`Failed to parse JSON response from OpenCode System One: ${e.message}`);
+      }
+
+      if (args.responseFormat === "systemone") {
+        return {
+          response: new Response(JSON.stringify(rawData), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+          url,
+          headers,
+          transformedBody,
+          responseFormat: "systemone",
+        };
+      }
+
+      const contentText = formatAnswersContent(rawData);
+      const modelVersion = rawData?.metadata?.version || rawData?.model || model || "jev-1.13-free";
+      const promptTokens = rawData?.usage?.input_tokens || rawData?.metadata?.input_tokens || Math.max(1, Math.round(JSON.stringify(transformedBody).length / 4));
+      const completionTokens = rawData?.usage?.output_tokens || rawData?.metadata?.output_tokens || Math.max(1, Math.round(contentText.length / 4));
+      const totalTokens = promptTokens + completionTokens;
+
+      if (stream) {
+        const encoder = new TextEncoder();
+        const chunkId = `chatcmpl-${Date.now()}`;
+        const created = Math.floor(Date.now() / 1000);
+
+        const streamBody = new ReadableStream({
+          start(controller) {
+            const initialChunk = {
+              id: chunkId,
+              object: "chat.completion.chunk",
+              created,
+              model: modelVersion,
+              choices: [
+                {
+                  index: 0,
+                  delta: { role: "assistant", content: contentText },
+                  finish_reason: null,
+                },
+              ],
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(initialChunk)}\n\n`));
+
+            const finalChunk = {
+              id: chunkId,
+              object: "chat.completion.chunk",
+              created,
+              model: modelVersion,
+              choices: [
+                {
+                  index: 0,
+                  delta: {},
+                  finish_reason: "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: promptTokens,
+                completion_tokens: completionTokens,
+                total_tokens: totalTokens,
+              },
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`));
+            controller.enqueue(encoder.encode(SSE_DONE));
+            controller.close();
+          },
+        });
+
+        return {
+          response: new Response(streamBody, {
+            status: 200,
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+            },
+          }),
+          url,
+          headers,
+          transformedBody,
+          responseFormat: "openai",
+        };
+      }
+
+      const completionPayload = {
+        id: `chatcmpl-${Date.now()}`,
+        object: "chat.completion",
+        created: Math.floor(Date.now() / 1000),
+        model: modelVersion,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: contentText,
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: totalTokens,
+        },
+      };
+
+      return {
+        response: new Response(JSON.stringify(completionPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        url,
+        headers,
+        transformedBody,
+        responseFormat: "openai",
+      };
+    }
+
+    return super.execute({ ...args, credentials: creds });
   }
 
   buildUrl(model) {
     const base = this.config.baseUrl;
+    if (isSystemOneModel(model)) return `${base}/zen/v1/systemone`;
     if (isResponsesModel(model)) return `${base}/zen/v1/responses`;
     if (isMessagesModel(model)) return `${base}/zen/v1/messages`;
     return `${base}/zen/v1/chat/completions`;

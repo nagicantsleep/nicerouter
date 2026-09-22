@@ -94,6 +94,72 @@ exports[`GOLDEN buildHeaders (default executor providers) > agentrouter → head
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > agents.ai.vn → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > agents-ai-vn → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > agents-vn → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > airforce → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -377,6 +443,28 @@ exports[`GOLDEN buildHeaders (default executor providers) > atria → headers (a
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > atria-asi → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > avn → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1371,6 +1459,50 @@ exports[`GOLDEN buildHeaders (default executor providers) > deepseek → headers
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > devin → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > devin-cli → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > dg → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -1415,6 +1547,28 @@ exports[`GOLDEN buildHeaders (default executor providers) > ds → headers (apiK
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > dv → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > ernie → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -1433,6 +1587,28 @@ exports[`GOLDEN buildHeaders (default executor providers) > ernie → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > fb → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
   },
 }
 `;
@@ -1482,6 +1658,50 @@ exports[`GOLDEN buildHeaders (default executor providers) > fireworks → header
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > fl → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > freebuff → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Freebuff-CLI/0.0.150",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > gateway-agents-ai-vn → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1648,6 +1868,50 @@ exports[`GOLDEN buildHeaders (default executor providers) > gh → headers (apiK
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > gitlab → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > gitlawb → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > gitlawb-opengateway → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -2737,6 +3001,53 @@ exports[`GOLDEN buildHeaders (default executor providers) > ocg → headers (api
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > ocz → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > ogw → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > ollama → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -2826,6 +3137,78 @@ exports[`GOLDEN buildHeaders (default executor providers) > onerouter-pro → he
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > openai → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > opencode-free → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > opencode-zen → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > opengateway → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -3425,6 +3808,116 @@ exports[`GOLDEN buildHeaders (default executor providers) > tr → headers (apiK
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > ts → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > typesafe → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > typesafe-ai → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > typesage → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > typesage-ai → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > venice → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -3849,6 +4342,31 @@ exports[`GOLDEN buildHeaders (default executor providers) > zed → headers (api
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > zen → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "Cline/3.0.0",
+    "x-opencode-client": "desktop",
+  },
+}
+`;
+
 exports[`GOLDEN buildUrl (default executor providers) > aai → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://api.assemblyai.com/v1/audio/transcriptions",
@@ -3874,6 +4392,27 @@ exports[`GOLDEN buildUrl (default executor providers) > agentrouter → url (str
 {
   "nonStream": "https://agentrouter.org/v1/chat/completions",
   "stream": "https://agentrouter.org/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > agents.ai.vn → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://gateway.agents.ai.vn/v1/chat/completions",
+  "stream": "https://gateway.agents.ai.vn/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > agents-ai-vn → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://gateway.agents.ai.vn/v1/chat/completions",
+  "stream": "https://gateway.agents.ai.vn/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > agents-vn → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://gateway.agents.ai.vn/v1/chat/completions",
+  "stream": "https://gateway.agents.ai.vn/v1/chat/completions",
 }
 `;
 
@@ -3965,6 +4504,13 @@ exports[`GOLDEN buildUrl (default executor providers) > atria-asi → url (strea
 {
   "nonStream": "https://api.atria-asi.ai/v1/chat/completions",
   "stream": "https://api.atria-asi.ai/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > avn → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://gateway.agents.ai.vn/v1/chat/completions",
+  "stream": "https://gateway.agents.ai.vn/v1/chat/completions",
 }
 `;
 
@@ -4206,6 +4752,20 @@ exports[`GOLDEN buildUrl (default executor providers) > deepseek → url (stream
 }
 `;
 
+exports[`GOLDEN buildUrl (default executor providers) > devin → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "devin://acp/stdio",
+  "stream": "devin://acp/stdio",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > devin-cli → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "devin://acp/stdio",
+  "stream": "devin://acp/stdio",
+}
+`;
+
 exports[`GOLDEN buildUrl (default executor providers) > dg → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://api.deepgram.com/v1/listen",
@@ -4220,10 +4780,24 @@ exports[`GOLDEN buildUrl (default executor providers) > ds → url (stream + non
 }
 `;
 
+exports[`GOLDEN buildUrl (default executor providers) > dv → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "devin://acp/stdio",
+  "stream": "devin://acp/stdio",
+}
+`;
+
 exports[`GOLDEN buildUrl (default executor providers) > ernie → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://qianfan.baidubce.com/v2/chat/completions",
   "stream": "https://qianfan.baidubce.com/v2/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > fb → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://www.codebuff.com",
+  "stream": "https://www.codebuff.com",
 }
 `;
 
@@ -4245,6 +4819,20 @@ exports[`GOLDEN buildUrl (default executor providers) > fl → url (stream + non
 {
   "nonStream": "https://api.featherless.ai/v1/chat/completions",
   "stream": "https://api.featherless.ai/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > freebuff → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://www.codebuff.com",
+  "stream": "https://www.codebuff.com",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > gateway-agents-ai-vn → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://gateway.agents.ai.vn/v1/chat/completions",
+  "stream": "https://gateway.agents.ai.vn/v1/chat/completions",
 }
 `;
 
@@ -4287,6 +4875,20 @@ exports[`GOLDEN buildUrl (default executor providers) > gitlab → url (stream +
 {
   "nonStream": "https://gitlab.com/api/v4/chat/completions",
   "stream": "https://gitlab.com/api/v4/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > gitlawb → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opengateway.gitlawb.com/v1/chat/completions",
+  "stream": "https://opengateway.gitlawb.com/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > gitlawb-opengateway → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opengateway.gitlawb.com/v1/chat/completions",
+  "stream": "https://opengateway.gitlawb.com/v1/chat/completions",
 }
 `;
 
@@ -4598,6 +5200,20 @@ exports[`GOLDEN buildUrl (default executor providers) > ocg → url (stream + no
 }
 `;
 
+exports[`GOLDEN buildUrl (default executor providers) > ocz → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opencode.ai",
+  "stream": "https://opencode.ai",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > ogw → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opengateway.gitlawb.com/v1/chat/completions",
+  "stream": "https://opengateway.gitlawb.com/v1/chat/completions",
+}
+`;
+
 exports[`GOLDEN buildUrl (default executor providers) > ollama → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://ollama.com/api/chat",
@@ -4630,6 +5246,27 @@ exports[`GOLDEN buildUrl (default executor providers) > openai → url (stream +
 {
   "nonStream": "https://api.openai.com/v1/chat/completions",
   "stream": "https://api.openai.com/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > opencode-free → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opencode.ai",
+  "stream": "https://opencode.ai",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > opencode-zen → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opencode.ai",
+  "stream": "https://opencode.ai",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > opengateway → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opengateway.gitlawb.com/v1/chat/completions",
+  "stream": "https://opengateway.gitlawb.com/v1/chat/completions",
 }
 `;
 
@@ -4815,6 +5452,41 @@ exports[`GOLDEN buildUrl (default executor providers) > tr → url (stream + non
 }
 `;
 
+exports[`GOLDEN buildUrl (default executor providers) > ts → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.typesafe.ai/v1/systemone",
+  "stream": "https://api.typesafe.ai/v1/systemone",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > typesafe → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.typesafe.ai/v1/systemone",
+  "stream": "https://api.typesafe.ai/v1/systemone",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > typesafe-ai → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.typesafe.ai/v1/systemone",
+  "stream": "https://api.typesafe.ai/v1/systemone",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > typesage → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.typesafe.ai/v1/systemone",
+  "stream": "https://api.typesafe.ai/v1/systemone",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > typesage-ai → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://api.typesafe.ai/v1/systemone",
+  "stream": "https://api.typesafe.ai/v1/systemone",
+}
+`;
+
 exports[`GOLDEN buildUrl (default executor providers) > venice → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://api.venice.ai/api/v1/chat/completions",
@@ -4945,5 +5617,12 @@ exports[`GOLDEN buildUrl (default executor providers) > zed → url (stream + no
 {
   "nonStream": "https://cloud.zed.dev/completions",
   "stream": "https://cloud.zed.dev/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > zen → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://opencode.ai",
+  "stream": "https://opencode.ai",
 }
 `;

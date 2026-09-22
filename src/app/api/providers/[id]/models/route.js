@@ -350,6 +350,24 @@ const PROVIDER_MODELS_CONFIG = {
   modelscope: createOpenAIModelsConfig("https://api-inference.modelscope.ai/v1/models"),
   onerouter: createOpenAIModelsConfig("https://llm.onerouter.pro/v1/models"),
   wusrouter: createOpenAIModelsConfig("https://api.wusrouter.com/v1/models"),
+  opengateway: {
+    url: "https://opengateway.gitlawb.com/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "User-Agent": "Cline/3.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    allowPublic: true,
+    parseResponse: (data) => {
+      const raw = parseOpenAIStyleModels(data);
+      return raw.map((m) => ({
+        ...m,
+        id: m.id || m.name,
+        name: m.name || m.id,
+        isFree: String(m.id).endsWith(":free") || (m.pricing?.prompt === "0" && m.pricing?.completion === "0"),
+      }));
+    },
+  },
+  "agents-vn": createOpenAIModelsConfig("https://gateway.agents.ai.vn/v1/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),

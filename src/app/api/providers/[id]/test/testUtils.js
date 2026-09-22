@@ -869,6 +869,18 @@ case "llm7": {
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
+      case "opengateway": {
+        const res = await fetchWithConnectionProxy("https://opengateway.gitlawb.com/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "agents-vn": {
+        const res = await fetchWithConnectionProxy("https://gateway.agents.ai.vn/v1/models", {
+          headers: { Authorization: `Bearer ${connection.apiKey}` },
+        }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
       case "seekai": {
         const res = await fetchWithConnectionProxy("https://seekai.cc/v1/models", {
           headers: { Authorization: `Bearer ${connection.apiKey}`, "User-Agent": "Cline/3.0.0" },

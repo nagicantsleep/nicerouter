@@ -139,6 +139,8 @@ import pFreebuff from "./freebuff.js";
 import pOpencodeZen from "./opencode-zen.js";
 import pTinyfish from "./tinyfish.js";
 import pTypesafe from "./typesafe.js";
+import pOpengateway from "./opengateway.js";
+import pAgentsVn from "./agents-vn.js";
 export default [
   p0,
   p1,
@@ -278,4 +280,6 @@ export default [
   pOpencodeZen,
   pTinyfish,
   pTypesafe,
+  pOpengateway,
+  pAgentsVn,
 ];

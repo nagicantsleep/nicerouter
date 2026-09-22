@@ -29,6 +29,8 @@ const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
   "modelscope",
   "onerouter",
   "wusrouter",
+  "opengateway",
+  "agents-vn",
   "qoder",
   "cline",
   "clinepass",

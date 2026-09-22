@@ -148,6 +148,40 @@ const LIVE_MODEL_RESOLVERS = {
       return null;
     }
   },
+  opengateway: async (conn) => {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (conn?.apiKey) headers.Authorization = `Bearer ${conn.apiKey}`;
+      const res = await fetch("https://opengateway.gitlawb.com/v1/models", {
+        headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data?.data || data?.models || []);
+      if (!raw.length) return null;
+      return { models: raw.map((m) => ({ id: m.id || m, name: m.name || m.id || m })) };
+    } catch {
+      return null;
+    }
+  },
+  "agents-vn": async (conn) => {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (conn?.apiKey) headers.Authorization = `Bearer ${conn.apiKey}`;
+      const res = await fetch("https://gateway.agents.ai.vn/v1/models", {
+        headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data?.data || data?.models || []);
+      if (!raw.length) return null;
+      return { models: raw.map((m) => ({ id: m.id || m, name: m.name || m.id || m })) };
+    } catch {
+      return null;
+    }
+  },
 };
 
 const parseOpenAIStyleModels = (data) => {

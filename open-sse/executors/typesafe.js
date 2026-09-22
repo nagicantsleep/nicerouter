@@ -6,7 +6,7 @@ import { SSE_DONE } from "../utils/sseConstants.js";
 /**
  * Convert chat completion messages to a text state string for TypeSafe System One
  */
-function messagesToState(messages) {
+export function messagesToState(messages) {
   if (!Array.isArray(messages) || messages.length === 0) {
     return "";
   }
@@ -30,7 +30,7 @@ function messagesToState(messages) {
 /**
  * Derive TypeSafe System One questions from chat request parameters (tools, response_format, etc.)
  */
-function deriveQuestions(body) {
+export function deriveQuestions(body) {
   if (body.questions && typeof body.questions === "object") {
     return body.questions;
   }
@@ -55,7 +55,7 @@ function deriveQuestions(body) {
     }
   }
 
-  // Default structured decision & score questions for System One
+  // Default structured decision question for System One
   return {
     decision: {
       type: "choice",
@@ -66,17 +66,13 @@ function deriveQuestions(body) {
         ambiguous: "Request is vague, ambiguous, or lacks required context",
       },
     },
-    confidence: {
-      type: "score",
-      instructions: "Rate confidence in understanding and evaluating the input state",
-    },
   };
 }
 
 /**
  * Format TypeSafe System One answers into a readable assistant message content
  */
-function formatAnswersContent(data) {
+export function formatAnswersContent(data) {
   if (!data) return "{}";
   if (data.answers && typeof data.answers === "object") {
     return JSON.stringify(data.answers, null, 2);

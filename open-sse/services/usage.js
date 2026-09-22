@@ -37,6 +37,7 @@ import { getStabilityUsage } from "./usage/stability.js";
 import { getFirecrawlUsage } from "./usage/firecrawl.js";
 import { getTavilyUsage } from "./usage/tavily.js";
 import { getElevenLabsUsage } from "./usage/elevenlabs.js";
+import { getOpenGatewayUsage } from "./usage/opengateway.js";
 
 /**
  * Get usage data for a provider connection
@@ -87,6 +88,8 @@ const USAGE_HANDLERS = {
   tokenrouter: (c) => getOpenAIBillingUsage("TokenRouter", "https://api.tokenrouter.com", c.apiKey, c.proxyOptions),
   wusrouter: (c) => getOpenAIBillingUsage("WusRouter", "https://api.wusrouter.com/v1", c.apiKey, c.proxyOptions),
   elevenlabs: (c) => getElevenLabsUsage(c.apiKey, c.proxyOptions),
+  opengateway: (c) => getOpenGatewayUsage(c.apiKey, c.proxyOptions),
+  "agents-vn": (c) => getOpenAIBillingUsage("Agents AI VN", "https://gateway.agents.ai.vn", c.apiKey, c.proxyOptions),
 };
 
 export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {

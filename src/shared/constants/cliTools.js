@@ -468,6 +468,60 @@ gemini extensions install https://github.com/manalkaff/opendesign
 # Fetch and follow .opencode/INSTALL.md from the repo`,
     },
   },
+  omp: {
+    id: "omp",
+    name: "Oh My Pi (omp)",
+    image: "/providers/omp.png",
+    color: "#8B5CF6",
+    description: "Extensible terminal AI coding agent harness with specialized model roles",
+    docsUrl: "https://github.com/can1357/oh-my-pi",
+    configType: "guide",
+    defaultCommand: "omp",
+    modelAliases: ["default", "judge", "image", "web", "speech", "dictation", "plan", "slow", "smol"],
+    notes: [
+      { type: "info", text: "omp supports specialized model roles (IMAGE, WEB, SPEECH, DICTATION, JUDGE) with ordered fallbacks." },
+      { type: "info", text: "NiceRouter natively supports all these roles via its unified endpoints (/v1/chat/completions, /v1/images/generations, /v1/search, /v1/audio/speech, /v1/audio/transcriptions, /v1/systemone)." },
+      { type: "warning", text: "Config path: Linux/macOS ~/.omp/agent/models.yml • Windows %USERPROFILE%\\.omp\\agent\\models.yml" },
+    ],
+    defaultModels: [
+      { id: "default", name: "Default (General Coding)", alias: "default", defaultValue: "cc/claude-sonnet-4-6" },
+      { id: "judge", name: "Judge (Review & Decisions)", alias: "judge", defaultValue: "typesafe/jev-latest" },
+      { id: "image", name: "Image (Generation & Vision)", alias: "image", defaultValue: "openrouter/black-forest-labs/FLUX.1-schnell" },
+      { id: "web", name: "Web (Search & Research)", alias: "web", defaultValue: "perplexity/sonar-pro" },
+      { id: "speech", name: "Speech (Text-to-Speech)", alias: "speech", defaultValue: "openai/tts-1" },
+      { id: "dictation", name: "Dictation (Speech-to-Text)", alias: "dictation", defaultValue: "groq/whisper-large-v3-turbo" },
+    ],
+    guideSteps: [
+      { step: 1, title: "Install Oh My Pi", desc: "Install omp CLI via your package manager or npm." },
+      { step: 2, title: "API Key", type: "apiKeySelector" },
+      { step: 3, title: "Base URL", value: "{{baseUrl}}", copyable: true },
+      { step: 4, title: "Select Model", type: "modelSelector" },
+      { step: 5, title: "Save Config", desc: "Add NiceRouter provider and role mappings to your ~/.omp/agent/models.yml file." },
+    ],
+    codeBlock: {
+      language: "yaml",
+      code: `providers:
+  nicerouter:
+    baseUrl: {{baseUrl}}
+    apiKey: {{apiKey}}
+    api: openai-completions
+    models:
+      - id: cc/claude-sonnet-4-6
+        name: Claude Sonnet 4.6
+      - id: typesafe/jev-latest
+        name: Jev Judge (System One)
+      - id: perplexity/sonar-pro
+        name: Perplexity Sonar
+      - id: openrouter/black-forest-labs/FLUX.1-schnell
+        name: FLUX.1 Schnell
+
+modelRoles:
+  default: nicerouter/cc/claude-sonnet-4-6
+  judge: nicerouter/typesafe/jev-latest
+  web: nicerouter/perplexity/sonar-pro
+  image: nicerouter/openrouter/black-forest-labs/FLUX.1-schnell`,
+    },
+  },
   // HIDDEN: gemini-cli
   // "gemini-cli": {
   //   id: "gemini-cli",

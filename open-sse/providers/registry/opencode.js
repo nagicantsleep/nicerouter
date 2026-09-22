@@ -41,6 +41,7 @@ export default {
     { id: "ling-3.0-flash-fin-free", name: "Ling 3.0 Flash Fin Free", targetFormat: "openai" },
     { id: "nemotron-3-ultra-free", name: "Nemotron 3 Ultra Free", targetFormat: "openai" },
     { id: "nemotron-3.5-lightning-free", name: "Nemotron 3.5 Lightning Free", targetFormat: "openai" },
+    { id: "jev-1.13-free", name: "Jev 1.13 Free (System One)", targetFormat: "systemone" },
   ],
   modelsFetcher: { url: "https://opencode.ai/zen/v1/models", type: "opencode-free" },
   passthroughModels: true,

@@ -364,9 +364,12 @@ export async function executeComboTrace({ combo, prompt = "Say hello in 1 word",
     }
 
     if (fetchRes.ok) {
-      const output = parsedData?.choices?.[0]?.message?.content ||
-        parsedData?.choices?.[0]?.text ||
-        "Success";
+      let output = parsedData?.choices?.[0]?.message?.content ||
+        parsedData?.choices?.[0]?.text;
+      if (!output && parsedData?.answers) {
+        output = JSON.stringify(parsedData.answers, null, 2);
+      }
+      if (!output) output = "Success";
 
       const stepData = {
         step: stepNumber,
