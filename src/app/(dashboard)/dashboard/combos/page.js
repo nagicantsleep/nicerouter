@@ -527,7 +527,6 @@ export default function CombosPage() {
             })()}
           </div>
         </div>
-        </div>
       )}
 
       {/* Capacity Adapter */}

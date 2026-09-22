@@ -637,6 +637,7 @@ export default function ProviderDetailPage() {
           await fetch(`/api/models/custom?${p}`, { method: "DELETE" });
         } else if (row.alias) {
           await fetch(`/api/models/alias?alias=${encodeURIComponent(row.alias)}`, { method: "DELETE" });
+        }
       }
       await Promise.all([fetchCustomModels(), fetchAliases()]);
       if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
