@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   filterQuotasByVisibility,
   getHiddenQuotaRows,
+  groupConnectionsByProvider,
   parseQuotaData,
   trimHiddenQuotaKeys,
-} from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
+} from "../../src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("provider quota visibility", () => {
   const data = {
@@ -71,5 +72,43 @@ describe("provider quota visibility", () => {
       codex: { hidden: ["gemini"] },
     };
     expect(filterQuotasByVisibility("antigravity", quotas, visibility)).toHaveLength(2);
+  });
+
+  describe("groupConnectionsByProvider", () => {
+    it("groups connections by provider while preserving order of items within each group", () => {
+      const connections = [
+        { id: "c1", provider: "claude", name: "Claude 1" },
+        { id: "x1", provider: "codex", name: "Codex 1" },
+        { id: "c2", provider: "claude", name: "Claude 2" },
+        { id: "k1", provider: "kiro", name: "Kiro 1" },
+        { id: "x2", provider: "codex", name: "Codex 2" },
+      ];
+
+      const grouped = groupConnectionsByProvider(connections);
+      expect(grouped).toEqual([
+        {
+          provider: "claude",
+          items: [
+            { id: "c1", provider: "claude", name: "Claude 1" },
+            { id: "c2", provider: "claude", name: "Claude 2" },
+          ],
+        },
+        {
+          provider: "codex",
+          items: [
+            { id: "x1", provider: "codex", name: "Codex 1" },
+            { id: "x2", provider: "codex", name: "Codex 2" },
+          ],
+        },
+        {
+          provider: "kiro",
+          items: [{ id: "k1", provider: "kiro", name: "Kiro 1" }],
+        },
+      ]);
+    });
+
+    it("returns an empty array when given an empty list", () => {
+      expect(groupConnectionsByProvider([])).toEqual([]);
+    });
   });
 });

@@ -7,6 +7,7 @@ export const REFRESH_INTERVAL_MS = 60000;
 export const CLAUDE_REFRESH_INTERVAL_MS = 600000;
 export const DEPLETED_QUOTA_THRESHOLD = 5;
 export const AUTO_REFRESH_STORAGE_KEY = "quotaAutoRefresh";
+export const GROUP_BY_PROVIDER_STORAGE_KEY = "quotaGroupByProvider";
 export const CONNECTIONS_PAGE_SIZE = 20;
 export const ACCOUNT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 export const ACCOUNT_PAGE_SIZE_MAX = 500;
@@ -45,6 +46,19 @@ function groupByProviderStable(connections) {
     seen.get(key).push(conn);
   }
   return Array.from(seen.values()).flat();
+}
+
+export function groupConnectionsByProvider(connections) {
+  const seen = new Map();
+  for (const conn of connections) {
+    const key = conn.provider || "other";
+    if (!seen.has(key)) seen.set(key, []);
+    seen.get(key).push(conn);
+  }
+  return Array.from(seen.entries()).map(([provider, items]) => ({
+    provider,
+    items,
+  }));
 }
 
 export function sortVisibleConnections(
