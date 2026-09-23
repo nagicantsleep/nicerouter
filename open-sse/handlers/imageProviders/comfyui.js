@@ -7,19 +7,32 @@ const BASE_URL = (defaultComfyUrl && !defaultComfyUrl.includes("localhost") && !
   ? defaultComfyUrl
   : "http://100.84.84.5:8188";
 
-function buildQwenWorkflow(promptText, width = 1024, height = 1024, steps = 20) {
+function buildQwenWorkflow(promptText, width = 1024, height = 1024, steps = 20, isUncensored = false) {
   const seed = Math.floor(Math.random() * 1000000);
+  const unetNode = isUncensored
+    ? {
+        "inputs": {
+          "unet_name": "qwen-image-2.1-UC-Q8_0.gguf"
+        },
+        "class_type": "UnetLoaderGGUF"
+      }
+    : {
+        "inputs": {
+          "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+          "weight_dtype": "default"
+        },
+        "class_type": "UNETLoader"
+      };
+
+  const clipName = isUncensored
+    ? "qwen3vl_8b_bf16_heretic.safetensors"
+    : "qwen3vl_8b_int8_convrot.safetensors";
+
   return {
-    "1": {
-      "inputs": {
-        "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
-        "weight_dtype": "default"
-      },
-      "class_type": "UNETLoader"
-    },
+    "1": unetNode,
     "2": {
       "inputs": {
-        "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+        "clip_name": clipName,
         "type": "qwen_image",
         "device": "default"
       },
@@ -72,7 +85,7 @@ function buildQwenWorkflow(promptText, width = 1024, height = 1024, steps = 20) 
     },
     "8": {
       "inputs": {
-        "filename_prefix": "9router_QwenImage",
+        "filename_prefix": isUncensored ? "9router_QwenImage_UC" : "9router_QwenImage",
         "images": ["7", 0]
       },
       "class_type": "SaveImage"
@@ -184,7 +197,8 @@ export default {
     if (lowerModel.includes("wan")) {
       return { prompt: buildWanWorkflow(promptText, 640, 368, 17, 20) };
     }
-    return { prompt: buildQwenWorkflow(promptText, width, height, 20) };
+    const isUncensored = lowerModel.includes("uncensor") || lowerModel.includes("-uc") || lowerModel.includes("heretic");
+    return { prompt: buildQwenWorkflow(promptText, width, height, 20, isUncensored) };
   },
   parseResponse: async (response, ctx) => {
     const resData = await response.json();

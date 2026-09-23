@@ -13,6 +13,7 @@ export default {
   transport: null,
   models: [
     { id: "qwen-image-2.1", name: "Qwen Image 2.1 (RGBA)", params: ["n","size"], kind: "image" },
+    { id: "qwen-image-2.1-uncensored", name: "Qwen Image 2.1 Uncensored", params: ["n","size"], kind: "image" },
     { id: "wan-2.1", name: "Wan 2.1 Video", params: ["n","size"], kind: "image" },
     { id: "flux-dev", name: "FLUX Dev", params: ["n","size"], kind: "image" },
     { id: "sdxl", name: "SDXL", params: ["n","size"], kind: "image" },
