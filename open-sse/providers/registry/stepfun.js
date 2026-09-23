@@ -1,0 +1,35 @@
+export default {
+  id: "stepfun",
+  priority: 145,
+  alias: "stepfun",
+  aliases: ["step"],
+  uiAlias: "step",
+  display: {
+    name: "StepFun (阶跃星辰)",
+    icon: "psychology",
+    color: "#2563EB",
+    textIcon: "SF",
+    website: "https://platform.stepfun.com",
+    notice: {
+      apiKeyUrl: "https://platform.stepfun.com/interface-key",
+    },
+  },
+  category: "apikey",
+  authModes: ["apikey"],
+  transport: {
+    baseUrl: "https://api.stepfun.com/v1/chat/completions",
+    validateUrl: "https://api.stepfun.com/v1/models",
+  },
+  models: [
+    { id: "step-3.7-flash", name: "Step 3.7 Flash" },
+    { id: "step-3.5-flash", name: "Step 3.5 Flash" },
+    { id: "step-2-16k", name: "Step 2 (16k)" },
+    { id: "step-1-8k", name: "Step 1 (8k)" },
+    { id: "step-1-32k", name: "Step 1 (32k)" },
+    { id: "step-1-128k", name: "Step 1 (128k)" },
+    { id: "step-1-256k", name: "Step 1 (256k)" },
+    { id: "step-1v-8k", name: "Step 1V Vision (8k)", kind: "imageToText" },
+    { id: "step-1v-32k", name: "Step 1V Vision (32k)", kind: "imageToText" },
+  ],
+  serviceKinds: ["llm", "imageToText"],
+};

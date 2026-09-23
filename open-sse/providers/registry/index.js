@@ -142,6 +142,7 @@ import pTinyfish from "./tinyfish.js";
 import pTypesafe from "./typesafe.js";
 import pOpengateway from "./opengateway.js";
 import pAgentsVn from "./agents-vn.js";
+import pStepFun from "./stepfun.js";
 export default [
   p0,
   p1,
@@ -284,4 +285,5 @@ export default [
   pTypesafe,
   pOpengateway,
   pAgentsVn,
+  pStepFun,
 ];
