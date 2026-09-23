@@ -25,6 +25,7 @@ if (!global._pendingTimers) global._pendingTimers = {};
 if (!global._recentRing) global._recentRing = { items: [], initialized: false };
 if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
 if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
+if (!global._rateWindow) global._rateWindow = [];
 
 const pendingRequests = global._pendingRequests;
 const lastErrorProvider = global._lastErrorProvider;
@@ -32,8 +33,71 @@ const pendingTimers = global._pendingTimers;
 const recentRing = global._recentRing;
 const connCache = global._connectionMapCache;
 const statsEmitTimers = global._statsEmitTimers;
+const rateWindow = global._rateWindow;
 
 export const statsEmitter = global._statsEmitter;
+
+export function recordRateHit({ model = "", provider = "", tokens = 0, promptTokens = 0, completionTokens = 0, isRequest = true } = {}) {
+  const now = Date.now();
+  rateWindow.push({
+    ts: now,
+    model: String(model || ""),
+    provider: String(provider || ""),
+    tokens: Number(tokens) || 0,
+    promptTokens: Number(promptTokens) || 0,
+    completionTokens: Number(completionTokens) || 0,
+    isRequest: !!isRequest,
+  });
+  // Prune entries older than 60s
+  const cutoff = now - 60000;
+  while (rateWindow.length > 0 && rateWindow[0].ts < cutoff) {
+    rateWindow.shift();
+  }
+}
+
+export function getRateStats() {
+  const now = Date.now();
+  const cutoff = now - 60000;
+  while (rateWindow.length > 0 && rateWindow[0].ts < cutoff) {
+    rateWindow.shift();
+  }
+
+  let currentRpm = 0;
+  let currentTpm = 0;
+  let currentInputTpm = 0;
+  let currentOutputTpm = 0;
+  const rpmByModel = {};
+  const tpmByModel = {};
+  const rpmByProvider = {};
+  const tpmByProvider = {};
+
+  for (const item of rateWindow) {
+    if (item.isRequest) {
+      currentRpm++;
+      if (item.model) rpmByModel[item.model] = (rpmByModel[item.model] || 0) + 1;
+      if (item.provider) rpmByProvider[item.provider] = (rpmByProvider[item.provider] || 0) + 1;
+    }
+    const tok = item.tokens || 0;
+    if (tok > 0) {
+      currentTpm += tok;
+      if (item.promptTokens) currentInputTpm += item.promptTokens;
+      if (item.completionTokens) currentOutputTpm += item.completionTokens;
+      if (item.model) tpmByModel[item.model] = (tpmByModel[item.model] || 0) + tok;
+      if (item.provider) tpmByProvider[item.provider] = (tpmByProvider[item.provider] || 0) + tok;
+    }
+  }
+
+  return {
+    currentRpm,
+    currentTpm,
+    currentInputTpm,
+    currentOutputTpm,
+    rpmByModel,
+    tpmByModel,
+    rpmByProvider,
+    tpmByProvider,
+  };
+}
 
 function scheduleStatsEvent(event, delayMs = 150) {
   const key = event === "update" ? "update" : "pending";
@@ -170,6 +234,7 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
   }
 
   if (started) {
+    recordRateHit({ model, provider, tokens: 0, isRequest: true });
     clearTimeout(pendingTimers[timerKey]);
     pendingTimers[timerKey] = setTimeout(() => {
       delete pendingTimers[timerKey];
@@ -235,7 +300,20 @@ export async function getActiveRequests() {
     .slice(0, 20);
 
   const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
-  return { activeRequests, recentRequests, errorProvider };
+  const rateStats = getRateStats();
+  return {
+    activeRequests,
+    recentRequests,
+    errorProvider,
+    currentRpm: rateStats.currentRpm,
+    currentTpm: rateStats.currentTpm,
+    currentInputTpm: rateStats.currentInputTpm,
+    currentOutputTpm: rateStats.currentOutputTpm,
+    rpmByModel: rateStats.rpmByModel,
+    tpmByModel: rateStats.tpmByModel,
+    rpmByProvider: rateStats.rpmByProvider,
+    tpmByProvider: rateStats.tpmByProvider,
+  };
 }
 
 export async function saveRequestUsage(entry) {
@@ -248,6 +326,16 @@ export async function saveRequestUsage(entry) {
     const tokens = entry.tokens || {};
     const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
     const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
+    const totalTokens = tokens.total_tokens || (promptTokens + completionTokens);
+
+    recordRateHit({
+      model: entry.model,
+      provider: entry.provider,
+      tokens: totalTokens,
+      promptTokens,
+      completionTokens,
+      isRequest: false,
+    });
 
     let inserted = false;
 
@@ -660,6 +748,24 @@ export async function getUsageStats(period = "all") {
       if (new Date(r.timestamp) > new Date(epe.lastUsed)) epe.lastUsed = r.timestamp;
     }
   }
+
+  const rateStats = getRateStats();
+  const peakRpm10m = Math.max(...stats.last10Minutes.map((b) => b.requests || 0), rateStats.currentRpm);
+  const peakTpm10m = Math.max(
+    ...stats.last10Minutes.map((b) => (b.promptTokens || 0) + (b.completionTokens || 0)),
+    rateStats.currentTpm
+  );
+
+  stats.currentRpm = rateStats.currentRpm;
+  stats.currentTpm = rateStats.currentTpm;
+  stats.currentInputTpm = rateStats.currentInputTpm;
+  stats.currentOutputTpm = rateStats.currentOutputTpm;
+  stats.peakRpm10m = peakRpm10m;
+  stats.peakTpm10m = peakTpm10m;
+  stats.rpmByModel = rateStats.rpmByModel;
+  stats.tpmByModel = rateStats.tpmByModel;
+  stats.rpmByProvider = rateStats.rpmByProvider;
+  stats.tpmByProvider = rateStats.tpmByProvider;
 
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
   return stats;

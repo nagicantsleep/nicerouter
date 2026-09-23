@@ -330,21 +330,44 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           groupedData: groupDataByKey(sortData(stats.byModel, pendingMap, sortBy, sortOrder), "rawModel"),
           storageKey: "usage-stats:expanded-models",
           emptyMessage: "No usage recorded yet.",
-          renderSummaryCells: (group) => (
-            <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
-            </>
-          ),
-          renderDetailCells: (item) => (
-            <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
-            </>
-          ),
+          renderSummaryCells: (group) => {
+            const gRpm = stats.rpmByModel?.[group.groupKey] || 0;
+            const gTpm = stats.tpmByModel?.[group.groupKey] || 0;
+            return (
+              <>
+                <td className="px-6 py-3 text-text-muted">
+                  {(gRpm > 0 || gTpm > 0) ? (
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono bg-info/10 text-info border border-info/20" title={`Active rate: ${gRpm} req/m, ${gTpm.toLocaleString()} tok/m`}>
+                      {gRpm} req/m • {gTpm >= 1000 ? `${(gTpm / 1000).toFixed(1)}k` : gTpm} tok/m
+                    </span>
+                  ) : "—"}
+                </td>
+                <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
+                <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              </>
+            );
+          },
+          renderDetailCells: (item) => {
+            const mRpm = stats.rpmByModel?.[item.rawModel] || stats.rpmByModel?.[item.key] || 0;
+            const mTpm = stats.tpmByModel?.[item.rawModel] || stats.tpmByModel?.[item.key] || 0;
+            return (
+              <>
+                <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>
+                  <div className="flex items-center gap-2">
+                    <span>{item.rawModel}</span>
+                    {(mRpm > 0 || mTpm > 0) && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono bg-info/10 text-info border border-info/20" title={`Current rate: ${mRpm} req/m, ${mTpm.toLocaleString()} tok/m`}>
+                        {mRpm} req/m • {mTpm >= 1000 ? `${(mTpm / 1000).toFixed(1)}k` : mTpm} tok/m
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
+                <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
+                <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              </>
+            );
+          },
         };
       }
       case "account": {
