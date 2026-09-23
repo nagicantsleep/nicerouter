@@ -18,7 +18,11 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  if (tempDir) {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
+  }
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -296,6 +300,15 @@ describe("DB SQLite layer — public API parity", () => {
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual(["gpt-4"]);
     await sqliteDb.enableModels("openai", []);
     expect(await sqliteDb.getDisabledByProvider("openai")).toEqual([]);
+  });
+
+  it("deletedModels: add/remove per provider", async () => {
+    await sqliteDb.deleteModels("openai", ["gpt-3.5", "gpt-4-0314"]);
+    expect(await sqliteDb.getDeletedByProvider("openai")).toEqual(expect.arrayContaining(["gpt-3.5", "gpt-4-0314"]));
+    await sqliteDb.restoreDeletedModels("openai", ["gpt-3.5"]);
+    expect(await sqliteDb.getDeletedByProvider("openai")).toEqual(["gpt-4-0314"]);
+    await sqliteDb.restoreDeletedModels("openai", []);
+    expect(await sqliteDb.getDeletedByProvider("openai")).toEqual([]);
   });
 
   it("usage: saveRequestUsage + getUsageHistory + getUsageStats", async () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getModelAliases, setModelAlias, getCustomModels } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getDeletedModels } from "@/lib/deletedModelsDb";
 import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
@@ -10,12 +11,14 @@ export async function GET() {
   try {
     const modelAliases = await getModelAliases();
     const disabled = await getDisabledModels();
+    const deleted = await getDeletedModels();
 
     const models = AI_MODELS
       .filter((m) => {
         const alias = getProviderAlias(m.provider) || m.provider;
-        const list = disabled[alias] || disabled[m.provider] || [];
-        return !list.includes(m.model);
+        const disabledList = disabled[alias] || disabled[m.provider] || [];
+        const deletedList = deleted[alias] || deleted[m.provider] || [];
+        return !disabledList.includes(m.model) && !deletedList.includes(m.model);
       })
       .map((m) => {
         const fullModel = `${m.provider}/${m.model}`;
@@ -41,6 +44,8 @@ export async function GET() {
     const seenFull = new Set(models.map((m) => m.fullModel));
     const customModels = (await getCustomModels()).filter((m) => {
       if (!m?.id || (m.kind || m.type || "llm") !== "llm") return false;
+      if (disabled[m.providerAlias]?.includes(m.id)) return false;
+      if (deleted[m.providerAlias]?.includes(m.id)) return false;
       return !seenFull.has(`${m.providerAlias}/${m.id}`);
     });
     for (const m of customModels) {

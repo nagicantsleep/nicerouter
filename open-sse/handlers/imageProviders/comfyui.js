@@ -183,7 +183,15 @@ export default {
     const base = String(raw).replace(/\/+$/, "");
     return `${base}/prompt`;
   },
-  buildHeaders: () => ({ "Content-Type": "application/json" }),
+  buildHeaders: (credentials) => {
+    const headers = { "Content-Type": "application/json" };
+    const auth = credentials?.apiKey || "naggidev:123123a@";
+    if (auth) {
+      const basic = auth.includes(":") ? Buffer.from(auth).toString("base64") : (auth.startsWith("Basic ") ? auth.slice(6) : Buffer.from(`naggidev:${auth}`).toString("base64"));
+      headers["Authorization"] = `Basic ${basic}`;
+    }
+    return headers;
+  },
   buildBody: (model, body) => {
     if (typeof body.prompt === "object" && body.prompt !== null) {
       return { prompt: body.prompt };
@@ -208,12 +216,13 @@ export default {
     }
 
     const baseUrl = ctx.url.replace(/\/prompt$/, "");
+    const authHeaders = ctx.headers?.Authorization ? { Authorization: ctx.headers.Authorization } : {};
     const maxWaitMs = 120000;
     const start = Date.now();
 
     while (Date.now() - start < maxWaitMs) {
       await new Promise((r) => setTimeout(r, 1000));
-      const histRes = await fetch(`${baseUrl}/history/${promptId}`);
+      const histRes = await fetch(`${baseUrl}/history/${promptId}`, { headers: authHeaders });
       if (!histRes.ok) continue;
       const history = await histRes.json();
       const promptHistory = history[promptId];
@@ -233,7 +242,7 @@ export default {
           if (files.length > 0) {
             const file = files[0];
             const fileUrl = `${baseUrl}/view?filename=${encodeURIComponent(file.filename)}&subfolder=${encodeURIComponent(file.subfolder || "")}&type=${encodeURIComponent(file.type || "output")}`;
-            const imgRes = await fetch(fileUrl);
+            const imgRes = await fetch(fileUrl, { headers: authHeaders });
             const arrayBuf = await imgRes.arrayBuffer();
             const b64 = Buffer.from(arrayBuf).toString("base64");
             return {

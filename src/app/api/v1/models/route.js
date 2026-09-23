@@ -7,6 +7,7 @@ import {
 } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getDeletedModels } from "@/lib/deletedModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels, routableQoderModels } from "open-sse/services/qoderModels.js";
@@ -350,6 +351,14 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
+  let deletedByAlias = {};
+  try {
+    deletedByAlias = await getDeletedModels();
+  } catch (e) {
+    console.log("Could not fetch deleted models");
+  }
+  const isDeleted = (alias, modelId) => Array.isArray(deletedByAlias[alias]) && deletedByAlias[alias].includes(modelId);
+
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
     if (!activeConnectionByProvider.has(conn.provider)) {
@@ -390,7 +399,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
       for (const model of providerModels) {
         if (!kindFilter.includes(modelKind(model))) continue;
-        if (isDisabled(alias, model.id)) continue;
+        if (isDisabled(alias, model.id) || isDeleted(alias, model.id)) continue;
         models.push({
           id: `${alias}/${model.id}`,
           object: "model",
@@ -408,7 +417,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       if (!providerAlias) continue;
 
       const modelId = String(customModel.id).trim();
-      if (!modelId) continue;
+      if (!modelId || isDeleted(providerAlias, modelId) || isDisabled(providerAlias, modelId)) continue;
 
       models.push({
         id: `${providerAlias}/${modelId}`,
@@ -546,6 +555,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         const allowAsLlm = kind === "imageToText" && kindFilter.includes(LLM_KIND);
         if (!kindFilter.includes(kind) && !allowAsLlm) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
+        if (isDeleted(outputAlias, modelId) || isDeleted(staticAlias, modelId) || isDeleted(providerId, modelId)) continue;
 
         const model = {
           id: `${outputAlias}/${modelId}`,

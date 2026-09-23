@@ -55,6 +55,11 @@ export {
   getDisabledModels, getDisabledByProvider, disableModels, enableModels,
 } from "./repos/disabledModelsRepo.js";
 
+// Deleted models
+export {
+  getDeletedModels, getDeletedByProvider, deleteModels, restoreDeletedModels,
+} from "./repos/deletedModelsRepo.js";
+
 // Usage
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,

@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { CapacityBadges } from "@/shared/components";
 
-export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
+export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onDelete, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
@@ -14,6 +14,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
     : testStatus === "error"
     ? "#ef4444"
     : undefined;
+
+  const handleDelete = onDelete || onDeleteAlias;
 
   return (
     <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
@@ -60,23 +62,38 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
           </span>
         </div>
-        {isCustom ? (
-          <button
-            onClick={onDeleteAlias}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
-            title="Remove custom model"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
-          </button>
-        ) : onDisable ? (
-          <button
-            onClick={onDisable}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
-            title="Disable this model"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
-          </button>
-        ) : null}
+        <div className="flex items-center gap-1 ml-auto shrink-0">
+          {onDisable && (
+            <div className="relative group/btn">
+              <button
+                type="button"
+                onClick={onDisable}
+                className="rounded p-0.5 text-text-muted opacity-100 transition-colors hover:bg-amber-500/10 hover:text-amber-500 sm:opacity-0 sm:group-hover:opacity-100"
+                title="Disable this model"
+              >
+                <span className="material-symbols-outlined text-sm">block</span>
+              </button>
+              <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
+                Disable
+              </span>
+            </div>
+          )}
+          {handleDelete && (
+            <div className="relative group/btn">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="rounded p-0.5 text-text-muted opacity-100 transition-colors hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+                title="Remove this model"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+              </button>
+              <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
+                Remove
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -94,6 +111,7 @@ ModelRow.propTypes = {
   isCustom: PropTypes.bool,
   isFree: PropTypes.bool,
   onDeleteAlias: PropTypes.func,
+  onDelete: PropTypes.func,
   onTest: PropTypes.func,
   isTesting: PropTypes.bool,
   onDisable: PropTypes.func,

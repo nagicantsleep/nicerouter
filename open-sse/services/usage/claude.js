@@ -126,9 +126,28 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
         }
       }
 
+      // Extract any reset credits / limit resets / spend if present in Anthropic OAuth response
+      const resets = data.resets || data.reset_credits || data.limit_resets || data.banked_resets || null;
+      let resetCredits = null;
+      if (resets) {
+        const availableCount = typeof resets.available_count === "number"
+          ? resets.available_count
+          : typeof resets.count === "number"
+          ? resets.count
+          : Array.isArray(resets)
+          ? resets.length
+          : 0;
+        resetCredits = {
+          availableCount,
+          raw: resets,
+        };
+      }
+
       return {
         plan: "Claude Code",
         extraUsage: data.extra_usage ?? null,
+        spend: data.spend ?? null,
+        ...(resetCredits ? { resetCredits } : {}),
         quotas,
       };
     }
