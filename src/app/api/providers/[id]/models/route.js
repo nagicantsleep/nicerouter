@@ -760,7 +760,90 @@ const PROVIDER_MODELS_CONFIG = {
       const data = await response.json();
       return { models: parseOpenAIStyleModels(data) };
     }
-  }
+  },
+  comfyui: {
+    allowPublic: true,
+    customResolver: async (connection) => {
+      const baseUrl = connection?.providerSpecificData?.baseUrl || connection?.baseUrl || "http://100.84.84.5:8188";
+      const base = String(baseUrl).replace(/\/+$/, "");
+      const auth = connection?.apiKey || "naggidev:123123a@";
+      const headers = { Accept: "application/json" };
+      if (auth) {
+        const basic = auth.includes(":")
+          ? Buffer.from(auth).toString("base64")
+          : (auth.startsWith("Basic ") ? auth.slice(6) : Buffer.from(`naggidev:${auth}`).toString("base64"));
+        headers["Authorization"] = `Basic ${basic}`;
+      }
+
+      let warning;
+      try {
+        const response = await fetch(`${base}/object_info`, {
+          method: "GET",
+          headers,
+          signal: AbortSignal.timeout(6000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const unetFiles = data?.UNETLoader?.input?.required?.unet_name?.[0] || [];
+          const ckptFiles = data?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+          const ggufFiles = data?.UnetLoaderGGUF?.input?.required?.unet_name?.[0] || [];
+          const diffFiles = data?.DiffusionModelLoader?.input?.required?.model_name?.[0] || [];
+
+          const allRawFiles = [...new Set([
+            ...(Array.isArray(unetFiles) ? unetFiles : []),
+            ...(Array.isArray(ckptFiles) ? ckptFiles : []),
+            ...(Array.isArray(ggufFiles) ? ggufFiles : []),
+            ...(Array.isArray(diffFiles) ? diffFiles : []),
+          ])];
+
+          if (allRawFiles.length > 0) {
+            const models = allRawFiles.map((filename) => {
+              const cleanId = String(filename).replace(/\.(safetensors|gguf|ckpt|pt|bin)$/i, "");
+              const isVideo = /(wan|hunyuan|cogvideo|svd|animatediff|ltx|mochi|cosmos|video|t2v|i2v)/i.test(filename);
+              return {
+                id: cleanId,
+                name: `${cleanId} (${filename})`,
+                type: isVideo ? "video" : "image",
+                isFree: true,
+                filename,
+              };
+            });
+
+            // Ensure popular static IDs exist if matching files are present
+            const hasWan = allRawFiles.some((f) => /wan2\.1/i.test(f));
+            if (hasWan && !models.some((m) => m.id === "wan-2.1")) {
+              models.unshift({
+                id: "wan-2.1",
+                name: "Wan 2.1 Video",
+                type: "video",
+                isFree: true,
+              });
+            }
+
+            const hasHunyuan = allRawFiles.some((f) => /hunyuan/i.test(f));
+            if (hasHunyuan && !models.some((m) => m.id === "hunyuan-video")) {
+              models.push({
+                id: "hunyuan-video",
+                name: "Hunyuan Video",
+                type: "video",
+                isFree: true,
+              });
+            }
+
+            return { models };
+          }
+        } else {
+          warning = `ComfyUI returned HTTP ${response.status} from ${base}/object_info`;
+        }
+      } catch (err) {
+        warning = `Cannot connect to ComfyUI at ${base} (${err.message}). Showing default models.`;
+      }
+
+      const staticModels = getStaticProviderModels("comfyui");
+      return { models: staticModels, warning };
+    },
+  },
 };
 
 /**

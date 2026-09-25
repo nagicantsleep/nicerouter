@@ -14,10 +14,13 @@ export default {
   models: [
     { id: "qwen-image-2.1", name: "Qwen Image 2.1 (RGBA)", params: ["n","size"], kind: "image" },
     { id: "qwen-image-2.1-uncensored", name: "Qwen Image 2.1 Uncensored", params: ["n","size"], kind: "image" },
-    { id: "wan-2.1", name: "Wan 2.1 Video", params: ["n","size"], kind: "image" },
+    { id: "wan-2.1", name: "Wan 2.1 Video", params: ["prompt", "size", "duration", "negative_prompt", "steps"], kinds: ["image", "video"], kind: "video" },
+    { id: "hunyuan-video", name: "Hunyuan Video", params: ["prompt", "size", "duration", "negative_prompt", "steps"], kind: "video" },
+    { id: "cogvideox", name: "CogVideoX", params: ["prompt", "size", "duration", "negative_prompt", "steps"], kind: "video" },
     { id: "flux-dev", name: "FLUX Dev", params: ["n","size"], kind: "image" },
     { id: "sdxl", name: "SDXL", params: ["n","size"], kind: "image" },
   ],
-  serviceKinds: ["image"],
+  serviceKinds: ["image", "video"],
   imageConfig: { baseUrl: "http://100.84.84.5:8188" },
+  videoConfig: { baseUrl: "http://100.84.84.5:8188" },
 };

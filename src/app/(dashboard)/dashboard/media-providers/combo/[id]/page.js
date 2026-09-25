@@ -23,7 +23,13 @@ const KIND_LABELS = {
   webSearch: "Web Search",
   webFetch: "Web Fetch",
   image: "Text to Image",
+  imageToText: "Image to Text",
   tts: "Text To Speech",
+  stt: "Speech To Text",
+  systemone: "System One (Jev)",
+  embedding: "Embedding",
+  video: "Video",
+  music: "Music",
 };
 
 const EXAMPLE_PATHS = {
@@ -31,6 +37,11 @@ const EXAMPLE_PATHS = {
   webFetch: "/v1/web/fetch",
   image: "/v1/images/generations",
   tts: "/v1/audio/speech",
+  stt: "/v1/audio/transcriptions",
+  systemone: "/v1/systemone",
+  embedding: "/v1/embeddings",
+  video: "/v1/videos/generations",
+  music: "/v1/audio/music",
 };
 
 const EXAMPLE_BODIES = {
@@ -38,6 +49,11 @@ const EXAMPLE_BODIES = {
   webFetch: (n) => ({ model: n, url: "https://example.com", format: "markdown" }),
   image: (n) => ({ model: n, prompt: "A cute cat playing piano", n: 1, size: "1024x1024" }),
   tts: (n) => ({ model: n, input: "Hello, this is a test.", voice: "alloy" }),
+  stt: (n) => ({ model: n, file: "<audio-file>" }),
+  systemone: (n) => ({ model: n, state: "Order ID 12345 failed to process payment", questions: { category: { type: "choice", criteria: { billing: "billing issue", tech: "tech issue" } } } }),
+  embedding: (n) => ({ model: n, input: "Hello world" }),
+  video: (n) => ({ model: n, prompt: "A cinematic aerial view of a mountain lake" }),
+  music: (n) => ({ model: n, prompt: "Upbeat electronic track with synth lead" }),
 };
 
 // Map combo.kind → listing route to go back to

@@ -13,22 +13,25 @@ import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import * as log from "../utils/logger.js";
 
-// Video generation is xAI-only today; requests without a provider prefix
-// (bare model id, or multipart bodies we deliberately don't parse) land here.
+// Video generation defaults to xai when no provider prefix is specified
 const DEFAULT_VIDEO_PROVIDER = "xai";
+const NO_AUTH_PROVIDERS = new Set(["comfyui"]);
 
 /**
  * Poll requests carry no model, so the provider comes from the pinned
  * connection (`x-connection-id`, returned on create) or an explicit
- * `?provider=` — falling back to the historical xAI default.
+ * `?provider=` / `x-9router-provider` header — falling back to the historical xAI default.
  */
 async function resolveGetProvider(request, connectionId) {
   if (connectionId) {
+    if (getVideoConfig(connectionId)) return connectionId;
     const conn = await getProviderConnectionById(connectionId).catch(() => null);
     if (conn?.provider && getVideoConfig(conn.provider)) return conn.provider;
   }
   const queried = new URL(request.url).searchParams.get("provider");
   if (queried && getVideoConfig(queried)) return queried;
+  const headerProvider = request.headers.get("x-provider") || request.headers.get("x-9router-provider");
+  if (headerProvider && getVideoConfig(headerProvider)) return headerProvider;
   return DEFAULT_VIDEO_PROVIDER;
 }
 
@@ -94,12 +97,16 @@ async function resolveVideoProvider(parsedBody) {
   return { provider: modelInfo.provider, model: modelInfo.model };
 }
 
-function withConnectionHeader(response, connectionId) {
-  if (!connectionId) return response;
+function withConnectionHeader(response, connectionId, provider = null) {
   const headers = new Headers(response.headers);
   // Video jobs are account-bound upstream — clients echo this back as
   // `x-connection-id` on GET polls so the same account is used.
-  headers.set("x-9router-connection-id", String(connectionId));
+  if (connectionId) {
+    headers.set("x-9router-connection-id", String(connectionId));
+  }
+  if (provider) {
+    headers.set("x-9router-provider", String(provider));
+  }
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -132,7 +139,15 @@ export async function handleVideoCreate(request, action) {
   let lastStatus = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
+    let credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
+
+    if (!credentials && NO_AUTH_PROVIDERS.has(provider) && excludeConnectionIds.size === 0) {
+      credentials = {
+        provider,
+        baseUrl: getVideoConfig(provider)?.baseUrl || "http://100.84.84.5:8188",
+        connectionId: "comfyui-default",
+      };
+    }
 
     if (!credentials || credentials.allRateLimited) {
       if (credentials?.allRateLimited) {
@@ -158,31 +173,37 @@ export async function handleVideoCreate(request, action) {
       signal: request.signal,
       log,
       onCredentialsRefreshed: async (newCreds) => {
-        await updateProviderCredentials(credentials.connectionId, {
-          accessToken: newCreds.accessToken,
-          refreshToken: newCreds.refreshToken,
-          providerSpecificData: newCreds.providerSpecificData,
-          testStatus: "active",
-        });
+        if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+          await updateProviderCredentials(credentials.connectionId, {
+            accessToken: newCreds.accessToken,
+            refreshToken: newCreds.refreshToken,
+            providerSpecificData: newCreds.providerSpecificData,
+            testStatus: "active",
+          });
+        }
       },
     });
 
     if (result.success) {
-      await clearAccountError(credentials.connectionId, credentials, model);
+      if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+        await clearAccountError(credentials.connectionId, credentials, model);
+      }
       log.info("VIDEO", `${provider.toUpperCase()} | ${action} accepted (connection ${credentials.connectionId})`);
-      return withConnectionHeader(result.response, credentials.connectionId);
+      return withConnectionHeader(result.response, credentials.connectionId, provider);
     }
 
     // Record the failure (dashboard shows lastError/errorCode → user sees re-auth is needed)
-    const { shouldFallback } = await markAccountUnavailable(
-      credentials.connectionId, result.status, sanitizeSecrets(result.error, refreshedCredentials), provider, model
-    );
+    if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+      const { shouldFallback } = await markAccountUnavailable(
+        credentials.connectionId, result.status, sanitizeSecrets(result.error, refreshedCredentials), provider, model
+      );
 
-    if (shouldFallback && CREATE_ROTATION_STATUSES.has(result.status)) {
-      excludeConnectionIds.add(credentials.connectionId);
-      lastError = result.error;
-      lastStatus = result.status;
-      continue;
+      if (shouldFallback && CREATE_ROTATION_STATUSES.has(result.status)) {
+        excludeConnectionIds.add(credentials.connectionId);
+        lastError = result.error;
+        lastStatus = result.status;
+        continue;
+      }
     }
 
     return result.response;
@@ -203,7 +224,14 @@ export async function handleVideoGet(request, requestId) {
   const preferredConnectionId = request.headers.get("x-connection-id") || null;
   const provider = await resolveGetProvider(request, preferredConnectionId);
 
-  const credentials = await getProviderCredentials(provider, null, null, { preferredConnectionId });
+  let credentials = await getProviderCredentials(provider, null, null, { preferredConnectionId });
+  if (!credentials && NO_AUTH_PROVIDERS.has(provider)) {
+    credentials = {
+      provider,
+      baseUrl: getVideoConfig(provider)?.baseUrl || "http://100.84.84.5:8188",
+      connectionId: "comfyui-default",
+    };
+  }
   if (!credentials || credentials.allRateLimited) {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
   }
@@ -217,22 +245,28 @@ export async function handleVideoGet(request, requestId) {
     signal: request.signal,
     log,
     onCredentialsRefreshed: async (newCreds) => {
-      await updateProviderCredentials(credentials.connectionId, {
-        accessToken: newCreds.accessToken,
-        refreshToken: newCreds.refreshToken,
-        providerSpecificData: newCreds.providerSpecificData,
-        testStatus: "active",
-      });
+      if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+        await updateProviderCredentials(credentials.connectionId, {
+          accessToken: newCreds.accessToken,
+          refreshToken: newCreds.refreshToken,
+          providerSpecificData: newCreds.providerSpecificData,
+          testStatus: "active",
+        });
+      }
     },
   });
 
   if (result.success) {
-    await clearAccountError(credentials.connectionId, credentials, null);
-    return withConnectionHeader(result.response, credentials.connectionId);
+    if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+      await clearAccountError(credentials.connectionId, credentials, null);
+    }
+    return withConnectionHeader(result.response, credentials.connectionId, provider);
   }
 
-  await markAccountUnavailable(
-    credentials.connectionId, result.status, sanitizeSecrets(result.error, refreshedCredentials), provider, null
-  );
+  if (credentials.connectionId && credentials.connectionId !== "comfyui-default") {
+    await markAccountUnavailable(
+      credentials.connectionId, result.status, sanitizeSecrets(result.error, refreshedCredentials), provider, null
+    );
+  }
   return result.response;
 }

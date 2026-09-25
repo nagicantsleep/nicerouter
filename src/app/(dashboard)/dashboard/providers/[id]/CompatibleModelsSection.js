@@ -4,7 +4,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import { Button } from "@/shared/components";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
-function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }) {
+function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, isTesting, onTestAllKeys, isTestingAllKeys, testStatus }) {
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
     : testStatus === "error"
@@ -46,15 +46,33 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
             <div className="relative group/btn">
               <button
                 onClick={onTest}
-                disabled={isTesting}
+                disabled={isTesting || isTestingAllKeys}
                 className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-colors"
+                title="Test (stops on first working key)"
               >
                 <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                   {isTesting ? "progress_activity" : "science"}
                 </span>
               </button>
-              <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+              <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
                 {isTesting ? "Testing..." : "Test"}
+              </span>
+            </div>
+          )}
+          {onTestAllKeys && (
+            <div className="relative group/btn">
+              <button
+                onClick={onTestAllKeys}
+                disabled={isTesting || isTestingAllKeys}
+                className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-colors"
+                title="Test with all keys"
+              >
+                <span className="material-symbols-outlined text-sm" style={isTestingAllKeys ? { animation: "spin 1s linear infinite" } : undefined}>
+                  {isTestingAllKeys ? "progress_activity" : "fact_check"}
+                </span>
+              </button>
+              <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
+                {isTestingAllKeys ? "Testing all..." : "Test All Keys"}
               </span>
             </div>
           )}
@@ -89,12 +107,12 @@ export default function CompatibleModelsSection({
   const [newModel, setNewModel] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [clearing, setClearing] = useState(false);
   const [testingModelId, setTestingModelId] = useState(null);
+  const [testingAllKeysModelId, setTestingAllKeysModelId] = useState(null);
   const [modelTestResults, setModelTestResults] = useState({});
 
   const handleTestModel = async (modelId) => {
-    if (testingModelId) return;
+    if (testingModelId || testingAllKeysModelId) return;
     setTestingModelId(modelId);
     try {
       const res = await fetch("/api/models/test", {
@@ -108,6 +126,31 @@ export default function CompatibleModelsSection({
       setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
     } finally {
       setTestingModelId(null);
+    }
+  };
+
+  const handleTestModelAllKeys = async (modelId) => {
+    if (testingAllKeysModelId || testingModelId || (connections || []).length === 0) return;
+    setTestingAllKeysModelId(modelId);
+    let passed = 0;
+    try {
+      for (const conn of connections) {
+        try {
+          const res = await fetch("/api/models/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: `${providerStorageAlias}/${modelId}`,
+              connectionId: conn.id,
+            }),
+          });
+          const data = await res.json();
+          if (data.ok) passed += 1;
+        } catch {}
+      }
+      setModelTestResults((prev) => ({ ...prev, [modelId]: passed > 0 ? "ok" : "error" }));
+    } finally {
+      setTestingAllKeysModelId(null);
     }
   };
 
@@ -264,6 +307,8 @@ export default function CompatibleModelsSection({
               onTest={connections.length > 0 ? () => handleTestModel(id) : undefined}
               testStatus={modelTestResults[id]}
               isTesting={testingModelId === id}
+              onTestAllKeys={connections.length > 0 ? () => handleTestModelAllKeys(id) : undefined}
+              isTestingAllKeys={testingAllKeysModelId === id}
             />
           ))}
         </div>

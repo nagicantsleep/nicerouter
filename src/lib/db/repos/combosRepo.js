@@ -2,13 +2,32 @@ import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
+function inferKindFromModels(models, name) {
+  const modelStrs = models.map((m) => typeof m === "string" ? m : (m?.model || m?.id || m?.name || "")).filter(Boolean);
+  if (modelStrs.length === 0) {
+    if (name && /jev|systemone/i.test(name)) return "systemone";
+    return null;
+  }
+  const isAllSystemone = modelStrs.every((m) => /jev|systemone|typesafe/i.test(m));
+  if (isAllSystemone) return "systemone";
+  const isAllImage = modelStrs.every((m) => /image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion|recraft|midjourney|ideogram/i.test(m));
+  if (isAllImage) return "image";
+  const isAllTts = modelStrs.every((m) => /tts|speech|voice|eleven|cartesia|polly/i.test(m));
+  if (isAllTts) return "tts";
+  const isAllEmbedding = modelStrs.every((m) => /embed|text-embedding/i.test(m));
+  if (isAllEmbedding) return "embedding";
+  return null;
+}
+
 function rowToCombo(row) {
   if (!row) return null;
+  const models = parseJson(row.models, []);
+  const kind = row.kind || inferKindFromModels(models, row.name);
   return {
     id: row.id,
     name: row.name,
-    kind: row.kind,
-    models: parseJson(row.models, []),
+    kind: kind || null,
+    models,
     isActive: row.isActive === undefined || row.isActive === null ? true : (row.isActive === 1 || row.isActive === true),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

@@ -9,6 +9,11 @@ import { matchModelKeywords, sortModelsByRelevance } from "@/shared/utils/modelS
 
 const MODEL_FAMILIES = [
   { id: "all", label: "All", regex: null },
+  { id: "video", label: "Video", regex: /(wan|hunyuan|cogvideo|svd|animatediff|ltx|mochi|cosmos|video|t2v|i2v)/i },
+  { id: "wan", label: "Wan", regex: /wan/i },
+  { id: "hunyuan", label: "Hunyuan", regex: /hunyuan/i },
+  { id: "flux", label: "FLUX", regex: /flux/i },
+  { id: "sd", label: "Stable Diffusion", regex: /(sd|stable|xl)/i },
   { id: "deepseek", label: "DeepSeek", regex: /deepseek/i },
   { id: "claude", label: "Claude", regex: /claude/i },
   { id: "openai", label: "GPT / OpenAI", regex: /(gpt|openai|^o[134](-|$)|chatgpt)/i },
@@ -28,6 +33,7 @@ export default function LiveModelFetchModal({
   targetConnectionId,
   existingModelIds = new Set(),
   onModelsAdded,
+  modelType = "llm",
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -177,7 +183,7 @@ export default function LiveModelFetchModal({
             body: JSON.stringify({
               providerAlias,
               id: m.id,
-              type: "llm",
+              type: m.type || modelType || "llm",
               name: m.name || m.id,
             }),
           });
@@ -409,4 +415,5 @@ LiveModelFetchModal.propTypes = {
   targetConnectionId: PropTypes.string,
   existingModelIds: PropTypes.instanceOf(Set),
   onModelsAdded: PropTypes.func,
+  modelType: PropTypes.string,
 };

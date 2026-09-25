@@ -189,7 +189,12 @@ export async function handleVideoProxyCore({
   let outType = upstream.headers.get("content-type") || "application/json";
   if (adapter?.transformResponse) {
     try {
-      outBody = JSON.stringify(adapter.transformResponse(JSON.parse(bodyText)));
+      outBody = JSON.stringify(adapter.transformResponse(JSON.parse(bodyText), {
+        requestId,
+        config,
+        credentials,
+        action,
+      }));
       outType = "application/json";
     } catch {
       // Non-JSON or unexpected shape — fall back to the raw upstream body.

@@ -7,10 +7,17 @@ import { Card, Badge, Button, Toggle, AddCustomEmbeddingModal } from "@/shared/c
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 
-// Kinds that support combos (currently disabled for image/tts — temporarily hidden).
-// webSearch/webFetch handled by /web page.
-const COMBO_KINDS = new Set([]);
-const COMBO_BASE_NAMES = { image: "image-combo", tts: "tts-combo" };
+// Kinds that support combos (webSearch/webFetch handled by /web page).
+const COMBO_KINDS = new Set(["image", "tts", "systemone", "embedding", "stt", "video", "music"]);
+const COMBO_BASE_NAMES = {
+  image: "image-combo",
+  tts: "tts-combo",
+  systemone: "systemone-combo",
+  embedding: "embedding-combo",
+  stt: "stt-combo",
+  video: "video-combo",
+  music: "music-combo",
+};
 
 function getEffectiveStatus(conn) {
   const isCooldown = Object.entries(conn).some(

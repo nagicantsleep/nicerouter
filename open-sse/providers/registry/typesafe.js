@@ -27,10 +27,14 @@ export default {
     baseUrl: "https://api.typesafe.ai/v1/systemone",
     validateUrl: "https://api.typesafe.ai/v1/systemone",
   },
+  serviceKinds: ["systemone"],
+  systemoneConfig: {
+    baseUrl: "https://api.typesafe.ai/v1/systemone",
+  },
   models: [
-    { id: "jev-latest", name: "Jev Latest (System One)" },
-    { id: "jev-1.13.0", name: "Jev 1.13.0" },
-    { id: "jev-1.12.0", name: "Jev 1.12.0" },
+    { id: "jev-latest", name: "Jev Latest (System One)", kind: "systemone" },
+    { id: "jev-1.13.0", name: "Jev 1.13.0", kind: "systemone" },
+    { id: "jev-1.12.0", name: "Jev 1.12.0", kind: "systemone" },
   ],
   passthroughModels: true,
 };

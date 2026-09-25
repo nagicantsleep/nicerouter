@@ -127,6 +127,28 @@ export async function PUT(request, { params }) {
     if (lastError !== undefined) updateData.lastError = lastError;
     if (lastErrorAt !== undefined) updateData.lastErrorAt = lastErrorAt;
 
+    // Khi đổi hoặc áp proxy, reset thời gian chờ (cooldown/modelLock) và lỗi về 0
+    const isProxyUpdated = proxyPoolResult.hasProxyPoolField || proxyConfig.hasAnyProxyField;
+    if (isProxyUpdated) {
+      if (testStatus === undefined) {
+        updateData.testStatus = "active";
+      }
+      if (lastError === undefined) {
+        updateData.lastError = null;
+      }
+      if (lastErrorAt === undefined) {
+        updateData.lastErrorAt = null;
+      }
+      updateData.errorCode = null;
+      updateData.rateLimitedUntil = null;
+      updateData.backoffLevel = 0;
+      for (const key of Object.keys(existing || {})) {
+        if (key.startsWith("modelLock_")) {
+          updateData[key] = null;
+        }
+      }
+    }
+
     if (
       shouldMergeProviderSpecificData(
         existing.providerSpecificData,

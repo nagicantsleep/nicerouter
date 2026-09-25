@@ -260,6 +260,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     // Filter out model-locked, excluded, Antigravity quota-exhausted, and Codex tier-incompatible connections.
     let availableConnections = connections.filter(c => {
       if (excludeSet.has(c.id)) return false;
+      if (preferredConnectionId && c.id === preferredConnectionId) return true;
       if (isModelLockActive(c, model)) return false;
       // Codex: Free accounts cannot serve Plus-only models (sol, terra, astra, image)
       if (isCodexPlusModel && isCodexFreeAccount(c)) return false;

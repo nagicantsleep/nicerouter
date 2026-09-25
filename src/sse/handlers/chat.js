@@ -238,8 +238,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
 
   // Routing shown in the unified "▶" line (client model → provider/model)
 
-  // Extract userAgent from request
+  // Extract userAgent and connection routing headers from request
   const userAgent = request?.headers?.get("user-agent") || "";
+  const preferredConnectionId = request?.headers?.get("x-connection-id") || null;
+  const noFallback = request?.headers?.get("x-no-fallback") === "true" || !!preferredConnectionId;
 
   // Try with available accounts (fallback on errors)
   const excludeConnectionIds = new Set();
@@ -247,7 +249,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let lastStatus = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {
@@ -343,6 +345,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
+      if (noFallback) {
+        return result.response;
+      }
       log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;

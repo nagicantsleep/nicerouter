@@ -213,6 +213,8 @@ const MODEL_TYPE_TO_KIND = {
   stt: "stt",
   imageToText: "imageToText",
   video: "video",
+  systemone: "systemone",
+  music: "music",
 };
 
 function modelKind(model) {
@@ -228,6 +230,7 @@ function inferKindFromUnknownModelId(modelId) {
   if (/embed/.test(lower)) return "embedding";
   if (/tts|speech|audio|voice/.test(lower)) return "tts";
   if (/image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion/.test(lower)) return "image";
+  if (/jev|systemone/.test(lower)) return "systemone";
   return LLM_KIND;
 }
 
@@ -380,7 +383,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       object: "model",
       owned_by: "combo",
     };
-    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
+    if (combo.kind && combo.kind !== LLM_KIND) {
       entry.kind = combo.kind;
     } else {
       const comboCaps = aggregateComboCapabilities(combo.models, comboByName);

@@ -8,12 +8,12 @@ import { getProviderAlias } from "@/shared/constants/providers";
 
 const ALLOWED_LIVE_FETCH_PROVIDERS = new Set([
   "openrouter", "poolside", "nvidia", "opencode", "opencode-go", "cloudflare-ai", "api-airforce",
-  "ramclouds", "seekai", "agentrouter", "vyceai", "kiraai", "orca", "bai", "atria", "modelscope", "onerouter", "wusrouter", "opengateway", "agents-vn", "qoder", "cline", "clinepass"
+  "ramclouds", "seekai", "agentrouter", "vyceai", "kiraai", "orca", "bai", "atria", "modelscope", "onerouter", "wusrouter", "opengateway", "agents-vn", "qoder", "cline", "clinepass", "comfyui"
 ]);
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 // ── ModelRow ───────────────────────────────────────────────────
-export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }) {
+export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, onTestAllKeys, isTestingAllKeys }) {
   const borderColor = testStatus === "ok" ? "border-green-500/40" : testStatus === "error" ? "border-red-500/40" : "border-border";
   const iconColor = testStatus === "ok" ? "#22c55e" : testStatus === "error" ? "#ef4444" : undefined;
 
@@ -29,13 +29,25 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
         </div>
         {onTest && (
           <div className="relative group/btn">
-            <button onClick={onTest} disabled={isTesting} className={`p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-opacity ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <button onClick={onTest} disabled={isTesting || isTestingAllKeys} className={`p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-opacity ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} title="Test (stops on first working key)">
               <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
-            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
               {isTesting ? "Testing..." : "Test"}
+            </span>
+          </div>
+        )}
+        {onTestAllKeys && (
+          <div className="relative group/btn">
+            <button onClick={onTestAllKeys} disabled={isTesting || isTestingAllKeys} className={`p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-opacity ${isTestingAllKeys ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} title="Test with all keys">
+              <span className="material-symbols-outlined text-sm" style={isTestingAllKeys ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTestingAllKeys ? "progress_activity" : "fact_check"}
+              </span>
+            </button>
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
+              {isTestingAllKeys ? "Testing all..." : "Test All Keys"}
             </span>
           </div>
         )}
@@ -193,8 +205,10 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     } catch (e) { console.log("delete custom model error:", e); }
   };
 
+  const [testingAllKeysModelId, setTestingAllKeysModelId] = useState(null);
+
   const handleTestModel = async (modelId) => {
-    if (testingModelId) return;
+    if (testingModelId || testingAllKeysModelId) return;
     setTestingModelId(modelId);
     try {
       const res = await fetch("/api/models/test", {
@@ -209,6 +223,30 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
       setTestError("Network error");
     } finally { setTestingModelId(null); }
+  };
+
+  const handleTestModelAllKeys = async (modelId) => {
+    if (testingAllKeysModelId || testingModelId) return;
+    setTestingAllKeysModelId(modelId);
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: `${providerAlias}/${modelId}`, kind: kindFilter, allKeys: true }),
+      });
+      const data = await res.json();
+      setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
+      if (data.results) {
+        setTestError(data.failed > 0 ? `Tested ${data.total} keys: ${data.passed} passed, ${data.failed} failed` : `All ${data.total} keys passed`);
+      } else {
+        setTestError(data.ok ? "" : (data.error || "Model not reachable"));
+      }
+    } catch {
+      setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
+      setTestError("Network error");
+    } finally {
+      setTestingAllKeysModelId(null);
+    }
   };
 
   // Built-in models — filter by kindFilter if provided
@@ -277,6 +315,8 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
                 testStatus={modelTestResults[model.id]}
                 onTest={() => handleTestModel(model.id)}
                 isTesting={testingModelId === model.id}
+                onTestAllKeys={() => handleTestModelAllKeys(model.id)}
+                isTestingAllKeys={testingAllKeysModelId === model.id}
                 isFree={model.isFree}
               />
             );
@@ -294,6 +334,8 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
               testStatus={modelTestResults[model.id]}
               onTest={() => handleTestModel(model.id)}
               isTesting={testingModelId === model.id}
+              onTestAllKeys={() => handleTestModelAllKeys(model.id)}
+              isTestingAllKeys={testingAllKeysModelId === model.id}
               isCustom
             />
           ))}
@@ -322,6 +364,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         onClose={() => setShowLiveModelModal(false)}
         providerId={providerId}
         providerAlias={providerAlias}
+        modelType={effectiveType}
         existingModelIds={new Set([
           ...builtInModels.map((m) => m.id),
           ...customModels

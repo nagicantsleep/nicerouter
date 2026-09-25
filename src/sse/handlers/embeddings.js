@@ -90,12 +90,14 @@ export async function handleEmbeddings(request) {
   }
 
   // Credential + fallback loop (mirrors handleChat)
+  const preferredConnectionId = request?.headers?.get("x-connection-id") || null;
+  const noFallback = request?.headers?.get("x-no-fallback") === "true" || !!preferredConnectionId;
   const excludeConnectionIds = new Set();
   let lastError = null;
   let lastStatus = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {
@@ -153,6 +155,9 @@ export async function handleEmbeddings(request) {
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model);
 
     if (shouldFallback) {
+      if (noFallback) {
+        return result.response;
+      }
       log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;

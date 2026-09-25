@@ -89,6 +89,7 @@ export default function ProviderDetailPage() {
   const [modelTestResults, setModelTestResults] = useState({});
   const [modelsTestError, setModelsTestError] = useState("");
   const [testingModelIds, setTestingModelIds] = useState(() => new Set());
+  const [testingAllKeysModelIds, setTestingAllKeysModelIds] = useState(() => new Set());
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState([]);
   const [bulkProxyPoolId, setBulkProxyPoolId] = useState("__none__");
@@ -1130,11 +1131,12 @@ export default function ProviderDetailPage() {
                       body: JSON.stringify({ proxyPoolId: proxyPoolId || null }),
                     });
                     if (res.ok) {
-                      setConnections(prev => prev.map(c =>
-                        c.id === conn.id
-                          ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } }
-                          : c
-                      ));
+                      const data = await res.json();
+                      if (data?.connection) {
+                        setConnections(prev => prev.map(c => c.id === conn.id ? data.connection : c));
+                      } else {
+                        await fetchConnections();
+                      }
                     }
                   } catch (error) {
                     console.log("Error updating proxy:", error);
@@ -1224,6 +1226,86 @@ export default function ProviderDetailPage() {
     }
   };
 
+  const handleTestModelAllKeys = async (modelId) => {
+    if (testingAllKeysModelIds.has(modelId) || connections.length === 0) return;
+    setTestingAllKeysModelIds((prev) => new Set(prev).add(modelId));
+    setModelsTestError(`Testing model "${modelId}" across all ${connections.length} keys...`);
+
+    const fullModelName = `${providerStorageAlias}/${modelId}`;
+    let passed = 0;
+    let failed = 0;
+    const errors = [];
+
+    const initialTestState = Object.fromEntries(
+      connections.map((c) => [c.id, { state: "queued", error: null }])
+    );
+    setOneByOneResults(initialTestState);
+
+    try {
+      for (const conn of connections) {
+        setOneByOneResults((prev) => ({
+          ...prev,
+          [conn.id]: { state: "testing", error: null },
+        }));
+
+        try {
+          const res = await fetch("/api/models/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: fullModelName,
+              connectionId: conn.id,
+            }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            passed += 1;
+            setOneByOneResults((prev) => ({
+              ...prev,
+              [conn.id]: { state: "success", error: null },
+            }));
+          } else {
+            failed += 1;
+            const errMsg = data.error || "Failed";
+            errors.push(`${conn.name || conn.email || conn.id.slice(0, 8)}: ${errMsg}`);
+            setOneByOneResults((prev) => ({
+              ...prev,
+              [conn.id]: { state: "failed", error: errMsg },
+            }));
+          }
+        } catch (err) {
+          failed += 1;
+          errors.push(`${conn.name || conn.email || conn.id.slice(0, 8)}: ${err.message || "Network error"}`);
+          setOneByOneResults((prev) => ({
+            ...prev,
+            [conn.id]: { state: "failed", error: err.message || "Network error" },
+          }));
+        }
+      }
+
+      setModelTestResults((prev) => ({
+        ...prev,
+        [modelId]: passed > 0 ? "ok" : "error",
+      }));
+
+      if (failed > 0) {
+        setModelsTestError(
+          `Tested ${connections.length} keys: ${passed} passed, ${failed} failed. ${errors.slice(0, 2).join("; ")}${errors.length > 2 ? "..." : ""}`
+        );
+      } else {
+        setModelsTestError(`All ${connections.length} keys passed for model "${modelId}".`);
+      }
+
+      await fetchConnections();
+    } finally {
+      setTestingAllKeysModelIds((prev) => {
+        const next = new Set(prev);
+        next.delete(modelId);
+        return next;
+      });
+    }
+  };
+
   const renderModelsSection = () => {
     if (isCompatible) {
       return (
@@ -1285,6 +1367,8 @@ export default function ProviderDetailPage() {
             testStatus={modelTestResults[model.id]}
             onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
+            onTestAllKeys={connections.length > 0 ? () => handleTestModelAllKeys(model.id) : undefined}
+            isTestingAllKeys={testingAllKeysModelIds.has(model.id)}
             isCustom
             isFree={false}
             caps={getCaps(`${providerId}/${model.id}`)}
@@ -1312,6 +1396,8 @@ export default function ProviderDetailPage() {
               testStatus={modelTestResults[model.id]}
               onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
+              onTestAllKeys={connections.length > 0 ? () => handleTestModelAllKeys(model.id) : undefined}
+              isTestingAllKeys={testingAllKeysModelIds.has(model.id)}
               isFree={model.isFree}
               caps={getCaps(`${providerId}/${model.id}`)}
               thinkingSuffix={resolveThinkingSuffix(model.id)}

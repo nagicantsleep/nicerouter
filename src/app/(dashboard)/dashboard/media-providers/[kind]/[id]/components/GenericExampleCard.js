@@ -217,6 +217,40 @@ export function GenericExampleCard({ providerId, kind }) {
         const data = await res.json();
         const latencyMs = Date.now() - start;
         setResult({ data, latencyMs });
+
+        // Auto-poll async video jobs until completed or failed
+        if (kind === "video" && (data?.id || data?.request_id)) {
+          const videoId = data.id || data.request_id;
+          const connHeader = res.headers.get("x-9router-connection-id") || pinnedConnectionId;
+          const pollHeaders = { Accept: "application/json" };
+          if (apiKey) pollHeaders["Authorization"] = `Bearer ${apiKey}`;
+          if (connHeader) pollHeaders["x-connection-id"] = connHeader;
+
+          let pollCount = 0;
+          const maxPolls = 100; // ~5 minutes max
+          while (pollCount < maxPolls) {
+            await new Promise((r) => setTimeout(r, 3000));
+            pollCount++;
+            try {
+              const pollRes = await fetch(`/api/v1/videos/${encodeURIComponent(videoId)}?provider=${encodeURIComponent(providerId)}`, {
+                headers: pollHeaders,
+              });
+              if (pollRes.ok) {
+                const pollData = await pollRes.json();
+                const currentLatency = Date.now() - start;
+                setResult({ data: pollData, latencyMs: currentLatency });
+                if (pollData.status === "completed" || pollData.status === "failed") {
+                  if (pollData.status === "failed") {
+                    setError(pollData.error || "Video generation failed");
+                  }
+                  break;
+                }
+              }
+            } catch {
+              // continue polling
+            }
+          }
+        }
       }
     } catch (e) {
       setError(e.message || "Network error");
@@ -576,6 +610,30 @@ export function GenericExampleCard({ providerId, kind }) {
                 className="max-w-full rounded-lg border border-border"
               loading="lazy"
               decoding="async"
+              />
+            </div>
+          )}
+          {kind === "video" && (result?.data?.video?.url || result?.data?.videos?.[0]?.url) && (
+            <div className="mt-2">
+              <div className="flex items-center justify-end mb-1.5">
+                <a
+                  href={result.data.video?.url || result.data.videos[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download="video.mp4"
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[14px]">download</span>
+                  Download Video
+                </a>
+              </div>
+              <video
+                src={result.data.video?.url || result.data.videos[0].url}
+                controls
+                autoPlay
+                loop
+                muted
+                className="max-w-full rounded-lg border border-border bg-black/5 dark:bg-white/5"
               />
             </div>
           )}

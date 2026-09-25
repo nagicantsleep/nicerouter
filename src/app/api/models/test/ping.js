@@ -52,8 +52,12 @@ async function getInternalHeaders() {
   return headers;
 }
 
-export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`) {
+export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`, options = {}) {
   const headers = await getInternalHeaders();
+  if (options?.connectionId) {
+    headers["x-connection-id"] = options.connectionId;
+    headers["x-no-fallback"] = "true";
+  }
   const start = Date.now();
 
   if (kind === "embedding") {
@@ -99,6 +103,30 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
     const hasImages = Array.isArray(parsed?.data) && parsed.data.length > 0;
     if (!hasImages) {
       return { ok: false, latencyMs, status: res.status, error: "Provider returned no image data for this model" };
+    }
+    return { ok: true, latencyMs, error: null, status: res.status };
+  }
+
+  if (kind === "video") {
+    const res = await fetch(`${baseUrl}/api/v1/videos/generations`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model, prompt: "test" }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const latencyMs = Date.now() - start;
+    const rawText = await res.text().catch(() => "");
+    let parsed = null;
+    try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
+
+    if (!res.ok) {
+      const detail = parsed?.error?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
+      return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
+    }
+
+    const hasVideo = parsed?.id || parsed?.request_id || parsed?.status || parsed?.video || (Array.isArray(parsed?.data) && parsed.data.length > 0);
+    if (!hasVideo) {
+      return { ok: false, latencyMs, status: res.status, error: "Provider returned no video job/data for this model" };
     }
     return { ok: true, latencyMs, error: null, status: res.status };
   }

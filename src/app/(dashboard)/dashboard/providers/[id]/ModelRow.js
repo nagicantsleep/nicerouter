@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { CapacityBadges } from "@/shared/components";
 
-export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onDelete, onTest, isTesting, onDisable, caps, thinkingSuffix }) {
+export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onDelete, onTest, isTesting, onTestAllKeys, isTestingAllKeys, onDisable, caps, thinkingSuffix }) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
@@ -37,15 +37,33 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
           <div className="relative shrink-0 group/btn">
             <button
               onClick={onTest}
-              disabled={isTesting}
+              disabled={isTesting || isTestingAllKeys}
               className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
+              title="Test (stops on first working key)"
             >
               <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
             </button>
-            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
               {isTesting ? "Testing..." : "Test"}
+            </span>
+          </div>
+        )}
+        {onTestAllKeys && (
+          <div className="relative shrink-0 group/btn">
+            <button
+              onClick={onTestAllKeys}
+              disabled={isTesting || isTestingAllKeys}
+              className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTestingAllKeys ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
+              title="Test with all keys"
+            >
+              <span className="material-symbols-outlined text-sm" style={isTestingAllKeys ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTestingAllKeys ? "progress_activity" : "fact_check"}
+              </span>
+            </button>
+            <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity z-10 bg-background px-1 rounded shadow border border-border">
+              {isTestingAllKeys ? "Testing all..." : "Test All Keys"}
             </span>
           </div>
         )}
@@ -114,6 +132,8 @@ ModelRow.propTypes = {
   onDelete: PropTypes.func,
   onTest: PropTypes.func,
   isTesting: PropTypes.bool,
+  onTestAllKeys: PropTypes.func,
+  isTestingAllKeys: PropTypes.bool,
   onDisable: PropTypes.func,
   caps: PropTypes.object,
   thinkingSuffix: PropTypes.string,
